@@ -63,6 +63,21 @@ const CARTOONS: Cartoon[] = [
 ];
 
 // --- Helper for Images ---
+// Используем Vite glob import, чтобы найти файлы в папке images
+const cartoonImages = import.meta.glob('./images/*.{jpg,jpeg,png,webp,JPG,JPEG}', { eager: true, import: 'default' });
+
+const getLocalImageUrl = (id: string) => {
+    // Ищем точное совпадение имени файла с id
+    for (const path in cartoonImages) {
+        // Путь будет ./images/id.jpg или подобный. Проверяем, содержится ли id между слешем и точкой
+        if (path.includes(`/${id}.`)) {
+             return cartoonImages[path] as string;
+        }
+    }
+    // Если не найдено, возвращаем просто путь (на случай если структура папок изменится)
+    return `/images/${id}.jpg`;
+};
+
 const getPlaceholderUrl = (title: string) => `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
 
 // --- Components ---
@@ -134,35 +149,19 @@ const Button: React.FC<ButtonProps> = ({
     );
 };
 
-// Supported extensions to try
-const EXTENSIONS = ['.jpg', '.png', '.jpeg', '.webp'];
-
 const GameImage = ({ id, title }: { id: string, title: string }) => {
-    // Start with index 0 (EXTENSIONS[0] which is .jpg)
-    const [extIndex, setExtIndex] = useState(0);
-    // Use relative path for better compatibility (e.g., VK mini apps iframe)
-    const [imgSrc, setImgSrc] = useState<string>(`./images/${id}${EXTENSIONS[0]}`);
+    const [imgSrc, setImgSrc] = useState<string>(getLocalImageUrl(id));
 
     useEffect(() => {
-        // Reset when ID changes
-        setExtIndex(0);
-        setImgSrc(`./images/${id}${EXTENSIONS[0]}`);
+        setImgSrc(getLocalImageUrl(id));
     }, [id]);
 
     const handleError = () => {
-        const nextIndex = extIndex + 1;
-        if (nextIndex < EXTENSIONS.length) {
-            setExtIndex(nextIndex);
-            setImgSrc(`./images/${id}${EXTENSIONS[nextIndex]}`);
-        } else {
-            // All extensions failed, show placeholder
-            setImgSrc(getPlaceholderUrl(title));
-        }
+        setImgSrc(getPlaceholderUrl(title));
     };
 
     return (
         <img 
-            key={imgSrc} // Force re-render on src change to reset error state
             src={imgSrc} 
             alt={title} 
             onError={handleError}
