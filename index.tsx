@@ -63,7 +63,21 @@ const CARTOONS: Cartoon[] = [
 ];
 
 // --- Helper for Images ---
-const getLocalImageUrl = (id: string) => `/images/${id}.jpg`;
+// Используем Vite glob import, чтобы найти файлы в папке images
+const cartoonImages = import.meta.glob('./images/*.{jpg,jpeg,png,webp,JPG,JPEG}', { eager: true, import: 'default' });
+
+const getLocalImageUrl = (id: string) => {
+    // Ищем точное совпадение имени файла с id
+    for (const path in cartoonImages) {
+        // Путь будет ./images/id.jpg или подобный. Проверяем, содержится ли id между слешем и точкой
+        if (path.includes(`/${id}.`)) {
+             return cartoonImages[path] as string;
+        }
+    }
+    // Если не найдено, возвращаем просто путь (на случай если структура папок изменится)
+    return `/images/${id}.jpg`;
+};
+
 const getPlaceholderUrl = (title: string) => `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
 
 // --- Components ---
