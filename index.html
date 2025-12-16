@@ -1,102 +1,47 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>СоюзМультКвиз</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Мульти-Викторина</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Ruslan+Display&display=swap" rel="stylesheet">
-    <!-- VK Bridge for VK/OK Games interaction -->
-    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        html, body {
-            height: 100%;
-            width: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            overscroll-behavior: none;
-            -webkit-overflow-scrolling: touch;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        body {
-            font-family: 'Oswald', sans-serif;
-            background-color: #f4f1ea;
-            color: #2c2c2c;
-        }
-        #root {
-            height: 100%;
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-        }
-
-        /* Background Pattern */
-        .bg-pattern {
-            background-color: #f4f1ea;
-            background-image: radial-gradient(#d1c7b7 1.5px, transparent 1.5px), radial-gradient(#d1c7b7 1.5px, #f4f1ea 1.5px);
-            background-size: 20px 20px;
-            background-position: 0 0, 10px 10px;
-        }
-        
-        /* Retro TV Scanline effect */
-        .scanlines {
-            background: linear-gradient(
-                to bottom,
-                rgba(255,255,255,0),
-                rgba(255,255,255,0) 50%,
-                rgba(0,0,0,0.1) 50%,
-                rgba(0,0,0,0.1)
-            );
-            background-size: 100% 4px;
-            pointer-events: none;
-        }
-
-        /* Custom Animations */
-        @keyframes blink-green {
-            0%, 100% { background-color: #4a7c59; color: white; border-color: #2e5239; transform: translateY(4px); box-shadow: 0 0 0 #2e5239; }
-            50% { transform: translateY(4px); }
-        }
-        @keyframes shake-red {
-            0%, 100% { transform: translateX(0); background-color: #cc3333; color: white; border-color: #8a2323; }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        .animate-correct { animation: blink-green 0.3s forwards; }
-        .animate-wrong { animation: shake-red 0.4s forwards; }
-        
-        .font-ruslan { font-family: 'Ruslan Display', cursive; }
-        
-        /* Utility for 3D button press effect */
-        .btn-press:active {
-            transform: translateY(4px) !important;
-            box-shadow: 0 0 0 transparent !important;
-        }
-        
-        /* Star Animation */
-        @keyframes star-pop {
-            0% { transform: scale(0); opacity: 0; }
-            50% { transform: scale(1.5); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .animate-star { animation: star-pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+      @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap');
+      body {
+        font-family: 'Nunito', sans-serif;
+      }
+      .animate-pop {
+        animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      @keyframes pop {
+        0% { transform: scale(0.8); opacity: 0; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      .shake {
+        animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+      }
+      @keyframes shake {
+        10%, 90% { transform: translate3d(-1px, 0, 0); }
+        20%, 80% { transform: translate3d(2px, 0, 0); }
+        30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+        40%, 60% { transform: translate3d(4px, 0, 0); }
+      }
     </style>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^18.3.1/",
-    "react": "https://esm.sh/react@^18.3.1",
-    "lucide-react": "https://esm.sh/lucide-react@^0.263.1",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0"
   }
 }
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body>
+  <body class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 min-h-screen flex items-center justify-center text-gray-800">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-</body>
+  </body>
 </html>
