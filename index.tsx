@@ -1,312 +1,508 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { GoogleGenAI } from "@google/genai";
+import { Play, RotateCcw, Home, Tv, Heart, Info, XCircle, Share2, Star, Trophy, Film, BarChart3 } from 'lucide-react';
+
+// --- Global VK Bridge Declaration ---
+declare const vkBridge: any;
 
 // --- Types ---
-type Question = {
-  id: number;
-  question: string;
-  options: string[];
-  correctAnswer: string;
-};
+type GameState = 'MENU' | 'GAME' | 'RESULT' | 'GAMEOVER';
 
-type GameState = 'menu' | 'playing' | 'gameover' | 'victory';
+interface Cartoon {
+    id: string;
+    ru: { title: string; desc: string; };
+}
 
-// --- Data: 30 Cartoon Questions ---
-const QUESTIONS_DB: Question[] = [
-  { id: 1, question: "Как звали кота в Простоквашино?", options: ["Мурзик", "Леопольд", "Матроскин", "Том"], correctAnswer: "Матроскин" },
-  { id: 2, question: "Кто живет в ананасе на дне океана?", options: ["Патрик", "Спанч Боб", "Сквидвард", "Планктон"], correctAnswer: "Спанч Боб" },
-  { id: 3, question: "Лучший друг Чебурашки?", options: ["Шапокляк", "Гена", "Пятачок", "Карлсон"], correctAnswer: "Гена" },
-  { id: 4, question: "Что Винни-Пух любил больше всего?", options: ["Варенье", "Мёд", "Сгущенку", "Пончики"], correctAnswer: "Мёд" },
-  { id: 5, question: "Какого цвета Шрек?", options: ["Синий", "Красный", "Зеленый", "Желтый"], correctAnswer: "Зеленый" },
-  { id: 6, question: "Как зовут львенка из 'Король Лев'?", options: ["Муфаса", "Шрам", "Тимон", "Симба"], correctAnswer: "Симба" },
-  { id: 7, question: "Кто говорит фразу 'Ну, заяц, погоди!'?", options: ["Лиса", "Медведь", "Волк", "Кабан"], correctAnswer: "Волк" },
-  { id: 8, question: "Как звали мамонта в 'Ледниковом периоде'?", options: ["Мэнни", "Сид", "Диего", "Скрэт"], correctAnswer: "Мэнни" },
-  { id: 9, question: "Кто такая Рапунцель?", options: ["Русалочка", "Принцесса с длинными волосами", "Фея", "Золушка"], correctAnswer: "Принцесса с длинными волосами" },
-  { id: 10, question: "В кого превращалась Фиона ночью?", options: ["В дракона", "В лягушку", "В огра", "В великана"], correctAnswer: "В огра" },
-  { id: 11, question: "Какой зверь Кунг-Фу Панда?", options: ["Тигр", "Панда", "Обезьяна", "Богомол"], correctAnswer: "Панда" },
-  { id: 12, question: "Как зовут снеговика из 'Холодного сердца'?", options: ["Свен", "Кристоф", "Олаф", "Ганс"], correctAnswer: "Олаф" },
-  { id: 13, question: "Поэт из Смешариков?", options: ["Крош", "Ёжик", "Бараш", "Лосяш"], correctAnswer: "Бараш" },
-  { id: 14, question: "Кто потерял хрустальную туфельку?", options: ["Белоснежка", "Золушка", "Спящая красавица", "Ариэль"], correctAnswer: "Золушка" },
-  { id: 15, question: "Друг Молнии Маккуина?", options: ["Мэтр", "Док", "Салли", "Гвидо"], correctAnswer: "Мэтр" },
-  { id: 16, question: "Кто живет на крыше?", options: ["Винни-Пух", "Карлсон", "Незнайка", "Буратино"], correctAnswer: "Карлсон" },
-  { id: 17, question: "Что потерял ослик Иа?", options: ["Голос", "Хвост", "Уши", "Дом"], correctAnswer: "Хвост" },
-  { id: 18, question: "Как зовут рыбку-клоуна, ищущего сына?", options: ["Дори", "Немо", "Марлин", "Брюс"], correctAnswer: "Марлин" },
-  { id: 19, question: "Главный враг Черепашек-ниндзя?", options: ["Крэнг", "Шреддер", "Бибоп", "Рокстеди"], correctAnswer: "Шреддер" },
-  { id: 20, question: "Что ест Попай для силы?", options: ["Мясо", "Шпинат", "Кашу", "Яблоки"], correctAnswer: "Шпинат" },
-  { id: 21, question: "Как зовут девочку, которая дружит с Медведем?", options: ["Даша", "Маша", "Катя", "Алиса"], correctAnswer: "Маша" },
-  { id: 22, question: "Кто украл Луну в 'Гадкий Я'?", options: ["Вектор", "Грю", "Миньоны", "Доктор Нефарио"], correctAnswer: "Грю" },
-  { id: 23, question: "Какого цвета маска у Леонардо (Черепашки-ниндзя)?", options: ["Красная", "Синяя", "Оранжевая", "Фиолетовая"], correctAnswer: "Синяя" },
-  { id: 24, question: "Как зовут крысу из 'Рататуй'?", options: ["Эмиль", "Джанго", "Реми", "Стюарт"], correctAnswer: "Реми" },
-  { id: 25, question: "Кто самый умный в Смешариках?", options: ["Копатыч", "Пин", "Лосяш", "Совунья"], correctAnswer: "Лосяш" },
-  { id: 26, question: "На чем летал Алладин?", options: ["На метле", "На ковре-самолете", "На драконе", "На орле"], correctAnswer: "На ковре-самолете" },
-  { id: 27, question: "У кого нос рос, когда он врал?", options: ["Чиполлино", "Незнайка", "Буратино", "Пьеро"], correctAnswer: "Буратино" },
-  { id: 28, question: "Как зовут зебру из Мадагаскара?", options: ["Алекс", "Мелман", "Марти", "Глория"], correctAnswer: "Марти" },
-  { id: 29, question: "Кто сказал 'Ребята, давайте жить дружно'?", options: ["Кот Матроскин", "Кот Леопольд", "Котенок Гав", "Кот в сапогах"], correctAnswer: "Кот Леопольд" },
-  { id: 30, question: "Кто такая Пеппа?", options: ["Кошка", "Собака", "Свинка", "Овечка"], correctAnswer: "Свинка" },
+// --- Data (UNCHANGED) ---
+const CARTOONS: Cartoon[] = [
+  { id: "nu_pogodi", ru: { title: "Ну, погоди!", desc: "Легендарная погоня Волка за Зайцем." } },
+  { id: "vinni", ru: { title: "Винни-Пух", desc: "Винни-Пуха озвучивал Евгений Леонов." } },
+  { id: "prostokvashino", ru: { title: "Простоквашино", desc: "Дядя Фёдор уехал жить с котом и псом." } },
+  { id: "bremenskie", ru: { title: "Бременские музыканты", desc: "Музыкальная фантазия с элементами рок-н-ролла." } },
+  { id: "ezhik", ru: { title: "Ёжик в тумане", desc: "Признан лучшим мультфильмом всех времён." } },
+  { id: "karlson", ru: { title: "Малыш и Карлсон", desc: "История о человеке, который живет на крыше." } },
+  { id: "pes", ru: { title: "Жил-был пёс", desc: "Фраза «Щас спою!» стала крылатой." } },
+  { id: "taina", ru: { title: "Тайна третьей планеты", desc: "Фантастическое путешествие Алисы Селезнёвой." } },
+  { id: "korabl", ru: { title: "Летучий корабль", desc: "Мюзикл про любовь и летучий корабль." } },
+  { id: "gena", ru: { title: "Крокодил Гена", desc: "Здесь впервые прозвучала песня про день рождения." } },
+  { id: "leopold", ru: { title: "Кот Леопольд", desc: "Ребята, давайте жить дружно!" } },
+  { id: "kesha", ru: { title: "Попугай Кеша", desc: "Таити, Таити... Нас и здесь неплохо кормят!" } },
+  { id: "sneg", ru: { title: "Падал прошлогодний снег", desc: "Маловато будет!" } },
+  { id: "umka", ru: { title: "Умка", desc: "История о белом медвежонке." } },
+  { id: "maugli", ru: { title: "Маугли", desc: "Советская экранизация Киплинга." } },
+  { id: "cheburashka", ru: { title: "Чебурашка", desc: "Неизвестный науке зверь с большими ушами." } },
+  { id: "vovka", ru: { title: "Вовка в Тридевятом царстве", desc: "«И так сойдёт!» — девиз лентяя Вовки." } },
+  { id: "popugaev", ru: { title: "38 попугаев", desc: "А в попугаях-то я гораздо длиннее!" } },
+  { id: "kuzya", ru: { title: "Домовёнок Кузя", desc: "Я не жадный, я домовитый!" } },
+  { id: "funtik", ru: { title: "Приключения Фунтика", desc: "Подайте на домики для бездомных поросят!" } },
+  { id: "gav", ru: { title: "Котёнок по имени Гав", desc: "Давай бояться вместе!" } },
+  { id: "ostrov", ru: { title: "Остров сокровищ", desc: "Гротескная экранизация с музыкальными вставками." } },
+  { id: "varezhka", ru: { title: "Варежка", desc: "Девочка так хотела собаку, что варежка ожила." } },
+  { id: "ded_moroz", ru: { title: "Дед Мороз и лето", desc: "Дед Мороз узнает, что такое лето." } },
+  { id: "chipollino", ru: { title: "Чиполлино", desc: "Революция овощей против синьора Помидора." } },
+  { id: "antelopa", ru: { title: "Золотая антилопа", desc: "Антилопа выбивала золотые монеты копытами." } },
+  { id: "alenkiy", ru: { title: "Аленький цветочек", desc: "Сказка о любви красавицы и чудовища." } },
+  { id: "12mes", ru: { title: "Двенадцать месяцев", desc: "Девочка встречает 12 месяцев у новогоднего костра." } },
+  { id: "snowqueen", ru: { title: "Снежная королева", desc: "Герда отправляется спасать Кая из ледяного плена." } },
+  { id: "neznaika", ru: { title: "Незнайка на Луне", desc: "Коротышки отправляются в космическое путешествие." } },
+  { id: "vrungel", ru: { title: "Капитан Врунгель", desc: "Как вы яхту назовете, так она и поплывет!" } },
+  { id: "aibolit", ru: { title: "Доктор Айболит", desc: "Добрый доктор лечит зверей в Африке." } },
+  { id: "rikki", ru: { title: "Рикки-Тикки-Тави", desc: "Отважный мангуст сражается с кобрами." } },
+  { id: "konyok", ru: { title: "Конёк-Горбунок", desc: "Верный волшебный друг Ивана." } },
+  { id: "plastilin", ru: { title: "Пластилиновая ворона", desc: "А может быть собака, а может быть корова..." } },
+  { id: "mamontenok", ru: { title: "Мама для мамонтёнка", desc: "Плыву я сквозь волны и ветер к единственной маме на свете." } },
+  { id: "bolibok", ru: { title: "Бобик в гостях у Барбоса", desc: "Человек собаке друг, это знают все вокруг!" } },
+  { id: "rybka", ru: { title: "О рыбаке и рыбке", desc: "Не хочу быть черной крестьянкой, хочу быть столбовою дворянкой!" } },
+  { id: "tsarevna", ru: { title: "Царевна-лягушка", desc: "Иван-царевич сжигает лягушачью кожу." } },
+  { id: "fedora", ru: { title: "Федорино горе", desc: "От грязнули Федоры сбежала вся посуда." } },
+  { id: "moydodyr", ru: { title: "Мойдодыр", desc: "Надо, надо умываться по утрам и вечерам!" } },
+  { id: "kot_sapog", ru: { title: "Кот в сапогах", desc: "Хитрый кот помогает своему хозяину стать маркизом." } },
+  { id: "snezhnaya", ru: { title: "Снегурочка", desc: "Девочка из снега, которая растаяла от любви." } },
+  { id: "dyuym", ru: { title: "Дюймовочка", desc: "Маленькая девочка, рожденная в цветке." } },
+  { id: "zaec", ru: { title: "Мешок яблок", desc: "Четыре сыночка и лапочка дочка." } },
 ];
 
-const App = () => {
-    const [gameState, setGameState] = useState<GameState>('menu');
-    const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-    const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
-    const [score, setScore] = useState(0);
-    const [lives, setLives] = useState(3);
-    const [stars, setStars] = useState(0);
-    const [feedback, setFeedback] = useState<'none' | 'correct' | 'wrong'>('none');
-    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  
-    // Logic to calculate max lives based on progress
-    const getMaxLives = (currentScore: number) => {
-      if (currentScore >= 6) return 1; // Level 3+
-      if (currentScore >= 3) return 2; // Level 2
-      return 3; // Level 1
-    };
-  
-    const startGame = () => {
-      setAvailableQuestions([...QUESTIONS_DB]);
-      setScore(0);
-      setLives(3);
-      setStars(0);
-      setFeedback('none');
-      setSelectedAnswer(null);
-      setGameState('playing');
-    };
-  
-    const nextQuestion = (currentPool: Question[], currentScore: number) => {
-      if (currentPool.length === 0) {
-        setGameState('victory');
-        return;
-      }
-  
-      const randomIndex = Math.floor(Math.random() * currentPool.length);
-      const question = currentPool[randomIndex];
-      
-      const newPool = currentPool.filter((_, index) => index !== randomIndex);
-      setAvailableQuestions(newPool);
-      setCurrentQuestion(question);
-      setFeedback('none');
-      setSelectedAnswer(null);
-    };
-  
-    useEffect(() => {
-      if (gameState === 'playing' && !currentQuestion) {
-        nextQuestion([...QUESTIONS_DB], 0);
-      }
-    }, [gameState]);
-  
-    const handleAnswer = (option: string) => {
-      if (feedback !== 'none' || !currentQuestion) return;
-  
-      if (option === currentQuestion.correctAnswer) {
-        setFeedback('correct');
-        const newScore = score + 1;
-        setScore(newScore);
-  
-        const newStars = Math.floor(newScore / 3);
-        
-        let nextLives = lives;
-        // Check if we hit a milestone (3, 6, 9...)
-        if (newScore % 3 === 0) {
-            const maxAllowed = getMaxLives(newScore);
-            // "с каждым уровнем жизнь уменьшается" -> Cap the lives
-            if (nextLives > maxAllowed) {
-              nextLives = maxAllowed;
-            }
+// --- Helper for Images ---
+// Используем Vite glob import, чтобы найти файлы в папке images
+const cartoonImages = import.meta.glob('./images/*.{jpg,jpeg,png,webp,JPG,JPEG}', { eager: true, import: 'default' });
+
+const getLocalImageUrl = (id: string) => {
+    // Ищем точное совпадение имени файла с id
+    for (const path in cartoonImages) {
+        // Путь будет ./images/id.jpg или подобный. Проверяем, содержится ли id между слешем и точкой
+        if (path.includes(`/${id}.`)) {
+             return cartoonImages[path] as string;
         }
-        
-        setStars(newStars);
-        setLives(nextLives);
-  
-        setTimeout(() => {
-          nextQuestion(availableQuestions, newScore);
-        }, 1200);
-      } else {
-        setFeedback('wrong');
-        const newLives = lives - 1;
-        setLives(newLives);
-  
-        if (newLives <= 0) {
-          setTimeout(() => setGameState('gameover'), 1200);
-        } else {
-          setTimeout(() => {
-            nextQuestion(availableQuestions, score);
-          }, 1200);
-        }
-      }
+    }
+    // Если не найдено, возвращаем просто путь (на случай если структура папок изменится)
+    return `/images/${id}.jpg`;
+};
+
+const getPlaceholderUrl = (title: string) => `https://placehold.co/600x450/333/eee?text=${encodeURIComponent(title)}`;
+
+// --- Components ---
+
+interface TVFrameProps {
+    children?: React.ReactNode;
+    brand?: string;
+}
+
+const TVFrame: React.FC<TVFrameProps> = ({ children, brand = "РУБИН" }) => (
+    <div className="relative w-full max-w-md aspect-[4/3] bg-[#5c3a21] rounded-2xl border-b-8 border-r-4 border-[#3e2716] shadow-2xl p-3 flex-shrink-0 mx-auto transform transition-transform hover:scale-[1.01]">
+        <div className="w-full h-full bg-black rounded-xl border-[6px] border-[#2a1a0e] shadow-inner relative overflow-hidden group">
+             {/* Screen Content */}
+            <div className="absolute inset-0 z-10 bg-black flex items-center justify-center">
+                {children}
+            </div>
+            {/* Overlay Effects */}
+            <div className="absolute inset-0 z-20 pointer-events-none bg-gradient-radial from-transparent via-black/10 to-black/60" />
+            <div className="absolute inset-0 z-20 pointer-events-none opacity-5 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ea/Tv_noise.gif')] mix-blend-overlay" />
+            <div className="absolute inset-0 z-20 pointer-events-none scanlines" />
+        </div>
+        {/* TV branding */}
+        <div className="absolute bottom-[-16px] right-8 bg-[#3e2716] px-4 py-1 rounded-b-lg border-b-2 border-r-2 border-[#2a1a0e] shadow-md z-30 flex gap-2 items-center">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_5px_red]"></div>
+            <span className="text-[10px] font-bold text-[#d4af37] tracking-[0.2em] font-ruslan">{brand}</span>
+        </div>
+        {/* Antenna */}
+        <div className="absolute top-[-30px] right-10 w-1 h-16 bg-gray-400 rotate-12 origin-bottom -z-10 border border-gray-600"></div>
+        <div className="absolute top-[-30px] right-6 w-1 h-12 bg-gray-400 -rotate-12 origin-bottom -z-10 border border-gray-600"></div>
+    </div>
+);
+
+interface ButtonProps {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    variant?: 'default' | 'primary' | 'ad' | 'outline' | 'share' | 'menu' | 'leaderboard';
+    className?: string;
+    disabled?: boolean;
+}
+
+const Button: React.FC<ButtonProps> = ({ 
+    children, 
+    onClick, 
+    variant = 'default',
+    className = '',
+    disabled = false
+}) => {
+    // New 3D button styles
+    const baseStyle = "w-full font-bold uppercase tracking-wider cursor-pointer flex items-center justify-center transition-all rounded-xl select-none relative active:translate-y-[4px] active:shadow-none btn-press disabled:opacity-50 disabled:cursor-not-allowed";
+    
+    const variants = {
+        default: "bg-[#fff8e1] border-2 border-[#5c3a21] text-[#3e2716] shadow-[0_4px_0_#5c3a21] py-2 text-base hover:bg-white",
+        primary: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_4px_0_#8a2323] py-4 text-lg hover:bg-[#d94444]",
+        menu: "bg-[#cc3333] border-2 border-[#8a2323] text-[#fff] shadow-[0_6px_0_#8a2323] py-5 text-xl hover:bg-[#d94444]",
+        leaderboard: "bg-[#d4af37] border-2 border-[#b08d26] text-[#3e2716] shadow-[0_6px_0_#b08d26] py-3 text-lg hover:bg-[#e5be49]",
+        ad: "bg-[#4a7c59] border-2 border-[#2e5239] text-white shadow-[0_4px_0_#2e5239] py-3 mt-3 hover:bg-[#5da06e]",
+        outline: "bg-transparent border-2 border-[#5c3a21] text-[#5c3a21] py-3 mt-2 hover:bg-[#5c3a21] hover:text-[#fff8e1] shadow-none active:translate-y-0",
+        share: "bg-[#4285f4] border-2 border-[#2b5ba3] text-white shadow-[0_4px_0_#2b5ba3] py-3 mt-2 hover:bg-[#5c9aff]"
     };
-  
-    const getDifficultyText = () => {
-      if (score >= 6) return "Уровень: Хардкор (1 жизнь)";
-      if (score >= 3) return "Уровень: Средний (2 жизни)";
-      return "Уровень: Легкий";
-    };
-  
-    if (gameState === 'menu') {
-      return (
-        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center animate-pop">
-          <h1 className="text-4xl font-black text-purple-600 mb-2">Мульти-Квиз</h1>
-          <p className="text-gray-500 mb-8">Проверь свои знания мультиков!</p>
-          
-          <div className="space-y-4 mb-8 text-left bg-purple-50 p-4 rounded-xl shadow-inner">
-            <div className="flex items-center gap-3">
-               <div className="w-8 flex justify-center"><i className="fas fa-star text-yellow-400 text-xl"></i></div>
-               <span className="text-sm text-gray-700 font-bold">3 вопроса = 1 звезда</span>
-            </div>
-            <div className="flex items-center gap-3">
-               <div className="w-8 flex justify-center"><i className="fas fa-arrow-down text-red-400 text-xl"></i></div>
-               <span className="text-sm text-gray-700 font-bold">Сложность растет!</span>
-            </div>
-            <div className="flex items-center gap-3">
-               <div className="w-8 flex justify-center"><i className="fas fa-heart-crack text-gray-500 text-xl"></i></div>
-               <span className="text-sm text-gray-700 font-bold">На Хардкоре всего 1 жизнь!</span>
-            </div>
-          </div>
-  
-          <button 
-            onClick={startGame}
-            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-4 px-8 rounded-2xl text-xl hover:scale-105 transition-transform shadow-lg active:scale-95"
-          >
-            Начать игру
-          </button>
-        </div>
-      );
-    }
-  
-    if (gameState === 'gameover') {
-      return (
-        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center animate-pop">
-          <div className="mb-6 text-6xl animate-bounce">😭</div>
-          <h2 className="text-3xl font-black text-red-500 mb-2">Игра окончена</h2>
-          <p className="text-xl text-gray-700 mb-6">Жизни закончились!</p>
-          <div className="bg-gray-100 rounded-xl p-4 mb-8">
-            <p className="text-gray-500 text-sm uppercase font-bold tracking-wider">Ваш результат</p>
-            <p className="text-5xl font-black text-purple-600 my-2">{score}</p>
-            <div className="flex justify-center gap-1 mt-2">
-               {[...Array(stars)].map((_, i) => (
-                  <i key={i} className="fas fa-star text-yellow-400 text-xl"></i>
-               ))}
-               {stars === 0 && <span className="text-gray-300 text-xs">Нет звезд</span>}
-            </div>
-          </div>
-          <button 
-            onClick={startGame}
-            className="w-full bg-gray-800 text-white font-bold py-3 px-6 rounded-2xl hover:bg-gray-700 transition-colors shadow-lg"
-          >
-            Попробовать снова
-          </button>
-        </div>
-      );
-    }
-  
-    if (gameState === 'victory') {
-      return (
-        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center animate-pop">
-          <div className="mb-6 text-6xl animate-bounce">🏆</div>
-          <h2 className="text-3xl font-black text-green-500 mb-2">Ты Герой!</h2>
-          <p className="text-gray-600 mb-6">Все вопросы пройдены!</p>
-          <p className="text-6xl font-black text-purple-600 mb-8">{score}</p>
-          <button 
-            onClick={startGame}
-            className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-2xl hover:bg-green-600 transition-colors shadow-lg"
-          >
-            Сыграть еще раз
-          </button>
-        </div>
-      );
-    }
-  
+
     return (
-      <div className="w-full max-w-lg px-4">
-        {/* HUD */}
-        <div className="flex justify-between items-center mb-6 bg-white/20 backdrop-blur-lg p-4 rounded-2xl text-white shadow-lg border border-white/30">
-          <div className="flex flex-col">
-             <div className="text-xs font-bold opacity-80 uppercase tracking-widest mb-1">Жизни</div>
-             <div className="flex gap-1 h-6">
-               {[...Array(Math.max(lives, 0))].map((_, i) => (
-                 <i key={i} className="fas fa-heart text-red-500 text-xl drop-shadow-sm"></i>
-               ))}
-               {/* Show empty hearts for max capacity allowed at current level */}
-               {[...Array(Math.max(getMaxLives(score) - lives, 0))].map((_, i) => (
-                 <i key={`lost-${i}`} className="fas fa-heart text-black/20 text-xl"></i>
-               ))}
-             </div>
-          </div>
-          
-          <div className="flex flex-col items-end">
-             <div className="flex items-center gap-2 mb-1">
-               <span className="font-black text-3xl drop-shadow-md">{score}</span>
-               <i className="fas fa-trophy text-yellow-300 text-xl drop-shadow-md"></i>
-             </div>
-             <div className="flex gap-1 h-4">
-               {[...Array(stars)].map((_, i) => (
-                 <i key={i} className="fas fa-star text-yellow-300 text-sm drop-shadow-sm"></i>
-               ))}
-             </div>
-          </div>
-        </div>
+        <button 
+            className={`${baseStyle} ${variants[variant]} ${className}`} 
+            onClick={onClick}
+            disabled={disabled}
+        >
+            {children}
+        </button>
+    );
+};
+
+const GameImage = ({ id, title }: { id: string, title: string }) => {
+    const [imgSrc, setImgSrc] = useState<string>(getLocalImageUrl(id));
+
+    useEffect(() => {
+        setImgSrc(getLocalImageUrl(id));
+    }, [id]);
+
+    const handleError = () => {
+        setImgSrc(getPlaceholderUrl(title));
+    };
+
+    return (
+        <img 
+            src={imgSrc} 
+            alt={title} 
+            onError={handleError}
+            className="w-full h-full object-cover filter contrast-[1.15] brightness-[0.95] sepia-[0.15]"
+        />
+    );
+};
+
+// Layout Container Card
+const Card = ({ children, className = "" }: { children?: React.ReactNode, className?: string }) => (
+    <div className={`bg-[#fffbf0] border-4 border-[#3e2716] rounded-2xl p-6 shadow-[8px_8px_0_rgba(62,39,22,0.2)] ${className}`}>
+        {children}
+    </div>
+);
+
+const App = () => {
+    const [gameState, setGameState] = useState<GameState>('MENU');
+    const [score, setScore] = useState(0);
+    const [highScore, setHighScore] = useState(0);
+    const [lives, setLives] = useState(3);
+    const [currentQuestion, setCurrentQuestion] = useState<Cartoon | null>(null);
+    const [options, setOptions] = useState<string[]>([]);
+    const [selectedOption, setSelectedOption] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    
+    useEffect(() => {
+        const initApp = async () => {
+            try {
+                if (typeof vkBridge !== 'undefined') {
+                    await vkBridge.send('VKWebAppInit');
+                    // Show sticky banner ad at bottom immediately on init
+                    vkBridge.send('VKWebAppShowBannerAd', {
+                        banner_location: 'bottom'
+                    }).catch((e: any) => console.log('Banner ad error', e));
+                }
+            } catch (e) {
+                console.error('VK Bridge Init Failed', e);
+            }
+        };
+        initApp();
+
+        const saved = localStorage.getItem('sovietQuizHighScore');
+        if (saved) setHighScore(parseInt(saved, 10));
+    }, []);
+
+    const saveScore = (newScore: number) => {
+        if (newScore > highScore) {
+            setHighScore(newScore);
+            localStorage.setItem('sovietQuizHighScore', newScore.toString());
+        }
         
-        {/* Difficulty Banner */}
-        <div className="text-center mb-6 transform transition-all duration-500">
-           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider text-white bg-black/40 backdrop-blur-md shadow-lg border border-white/10`}>
-              {score >= 6 && <i className="fas fa-fire text-orange-500 animate-pulse"></i>}
-              {getDifficultyText()}
-              {score >= 6 && <i className="fas fa-fire text-orange-500 animate-pulse"></i>}
-           </div>
-        </div>
-  
-        {/* Question Card */}
-        <div className={`bg-white rounded-3xl shadow-2xl overflow-hidden min-h-[420px] flex flex-col transition-all duration-300 ${feedback === 'wrong' ? 'shake ring-4 ring-red-400' : ''} ${feedback === 'correct' ? 'ring-4 ring-green-400 transform scale-[1.02]' : ''}`}>
-          <div className="bg-purple-50 p-8 flex-grow flex items-center justify-center text-center relative overflow-hidden">
-            {/* Background pattern decorative */}
-            <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
-                <i className="fas fa-question absolute top-4 left-4 text-4xl"></i>
-                <i className="fas fa-star absolute bottom-4 right-4 text-6xl"></i>
-                <i className="fas fa-tv absolute top-10 right-10 text-3xl"></i>
-            </div>
+        // Push score to VK Leaderboard
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send('VKWebAppSetLeaderboardScore', { value: newScore })
+                .then((data: any) => console.log('Score saved to VK', data))
+                .catch((error: any) => console.log('Score save failed', error));
+        }
+    };
+
+    const startGame = () => {
+        setScore(0);
+        setLives(3);
+        setGameState('GAME');
+        nextQuestion();
+    };
+
+    const goToMenu = () => {
+        setGameState('MENU');
+    };
+
+    const openLeaderboard = () => {
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send('VKWebAppShowLeaderboardBox', { user_result: highScore })
+                .catch((e: any) => console.log('Leaderboard open error', e));
+        } else {
+            console.log("VK Bridge not available, simulating leaderboard open");
+        }
+    };
+
+    const nextQuestion = () => {
+        setIsProcessing(false);
+        setSelectedOption(null);
+        
+        const correct = CARTOONS[Math.floor(Math.random() * CARTOONS.length)];
+        let distractors = CARTOONS.filter(c => c.id !== correct.id);
+        distractors = distractors.sort(() => 0.5 - Math.random()).slice(0, 3);
+        const allOptions = [correct, ...distractors].sort(() => 0.5 - Math.random()).map(c => c.ru.title);
+        
+        setCurrentQuestion(correct);
+        setOptions(allOptions);
+        setGameState('GAME');
+    };
+
+    const handleAnswer = (answer: string) => {
+        if (isProcessing || !currentQuestion) return;
+        setIsProcessing(true);
+        setSelectedOption(answer);
+
+        const isCorrect = answer === currentQuestion.ru.title;
+
+        if (isCorrect) {
+            setScore(prev => prev + 100);
+        } else {
+            setLives(prev => prev - 1);
+        }
+
+        setTimeout(() => {
+            if (!isCorrect && lives <= 1) {
+                const finalScore = isCorrect ? score + 100 : score;
+                saveScore(finalScore);
+                setGameState('GAMEOVER');
+            } else {
+                setGameState('RESULT');
+            }
+        }, 1200);
+    };
+
+    const handleRevive = async () => {
+        try {
+            if (typeof vkBridge !== 'undefined') {
+                const data = await vkBridge.send('VKWebAppShowNativeAds', { ad_format: 'reward' });
+                if (data.result) {
+                     setLives(1);
+                     setGameState('GAME');
+                     nextQuestion();
+                     return;
+                }
+            }
+        } catch (e) {
+            console.error('Ad show failed', e);
+        }
+        // Fallback
+        setLives(1);
+        setGameState('GAME');
+        nextQuestion();
+    };
+
+    const handleShare = () => {
+        if (typeof vkBridge !== 'undefined') {
+            vkBridge.send('VKWebAppShare', {
+                link: 'https://vk.com/app52163532',
+                message: `Мой рекорд: ${score} очков в викторине! Сможешь больше?`
+            });
+        }
+    };
+
+    return (
+        <div className="w-full h-full max-w-[500px] flex flex-col items-center relative bg-pattern pb-[60px]">
+            {/* Added bottom padding for Banner Ad space */}
             
-            <h2 className="text-2xl md:text-3xl font-black text-purple-900 leading-tight relative z-10">
-              {currentQuestion?.question}
-            </h2>
-          </div>
-  
-          <div className="p-6 grid grid-cols-1 gap-3 bg-white">
-            {currentQuestion?.options.map((option, index) => {
-               let btnClass = "py-4 px-6 rounded-xl font-bold text-lg transition-all transform active:scale-95 shadow-sm border-b-4 ";
-               
-               if (feedback === 'none') {
-                 btnClass += "bg-white border-purple-100 text-gray-700 hover:border-purple-300 hover:bg-purple-50 hover:shadow-md";
-               } else {
-                 if (option === currentQuestion.correctAnswer) {
-                   btnClass += "bg-green-500 border-green-700 text-white shadow-green-200";
-                 } else if (option === selectedAnswer) {
-                   btnClass += "bg-red-500 border-red-700 text-white shadow-red-200";
-                 } else {
-                   btnClass += "bg-gray-50 border-gray-200 text-gray-300 opacity-50 cursor-not-allowed";
-                 }
-               }
-  
-               return (
-                <button
-                  key={index}
-                  onClick={() => {
-                     setSelectedAnswer(option);
-                     handleAnswer(option);
-                  }}
-                  disabled={feedback !== 'none'}
-                  className={btnClass}
-                >
-                  {option}
-                </button>
-               );
-            })}
-          </div>
+            {/* --- TOP HUD (Only in Game) --- */}
+            {(gameState === 'GAME' || gameState === 'RESULT') && (
+                <div className="absolute top-0 left-0 right-0 h-16 bg-[#2c2c2c] shadow-lg z-50 flex justify-between items-center px-4 text-[#f0ead6] border-b-4 border-[#3e2716]">
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={goToMenu}
+                            className="p-2 -ml-2 text-white/70 hover:text-white transition-colors"
+                        >
+                            <Home className="w-6 h-6" />
+                        </button>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-white/50 font-bold tracking-widest uppercase">Счет</span>
+                            <span className="text-xl font-ruslan text-[#d4af37] leading-none">{score}</span>
+                        </div>
+                    </div>
+                    <div className="flex gap-1 items-center bg-black/30 px-3 py-1 rounded-full border border-white/10">
+                        {[...Array(3)].map((_, i) => (
+                            <Heart 
+                                key={i} 
+                                className={`w-5 h-5 transition-all ${i < lives ? 'fill-[#cc3333] text-[#cc3333]' : 'fill-[#4a4a4a] text-[#4a4a4a]'}`} 
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* --- MENU SCREEN --- */}
+            {gameState === 'MENU' && (
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
+                    <Card className="w-full max-w-sm text-center transform -rotate-1 relative overflow-hidden">
+                        {/* Decorative background elements inside card */}
+                        <div className="absolute top-0 left-0 w-full h-2 bg-[#cc3333]"></div>
+                        <div className="absolute bottom-0 left-0 w-full h-2 bg-[#cc3333]"></div>
+                        
+                        <div className="mb-8 mt-4 relative">
+                            <Film className="w-12 h-12 text-[#cc3333] opacity-20 absolute -top-4 -left-2 rotate-[-15deg]" />
+                            <h1 className="text-6xl font-ruslan text-[#cc3333] leading-[0.85] drop-shadow-[3px_3px_0_#3e2716] relative z-10">
+                                СОЮЗ<br/>МУЛЬТ<br/>КВИЗ
+                            </h1>
+                            <Film className="w-12 h-12 text-[#cc3333] opacity-20 absolute -bottom-2 -right-2 rotate-[15deg]" />
+                        </div>
+                        
+                        <div className="flex items-center justify-center gap-2 mb-8 text-[#5c3a21] font-bold text-sm tracking-widest uppercase border-y border-[#5c3a21] py-2">
+                             <Tv className="w-4 h-4" /> <span>Мультфильмы СССР</span> <Tv className="w-4 h-4" />
+                        </div>
+
+                        {highScore > 0 && (
+                            <div className="mb-6 inline-flex items-center gap-2 bg-[#ffecb3] text-[#5c3a21] px-4 py-2 rounded-lg border-2 border-[#d4af37] shadow-sm">
+                                <Trophy className="w-5 h-5 text-[#d4af37] fill-current" />
+                                <div className="flex flex-col items-start leading-none">
+                                    <span className="text-[10px] uppercase font-bold opacity-60">Рекорд</span>
+                                    <span className="text-lg font-bold">{highScore}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="space-y-3 w-full">
+                            <Button variant="menu" onClick={startGame}>
+                                <div className="flex items-center gap-3">
+                                    <Play className="fill-current w-6 h-6" />
+                                    ИГРАТЬ
+                                </div>
+                            </Button>
+
+                            <Button variant="leaderboard" onClick={openLeaderboard}>
+                                <div className="flex items-center gap-3 justify-center">
+                                    <BarChart3 className="w-5 h-5" />
+                                    РЕЙТИНГ
+                                </div>
+                            </Button>
+                        </div>
+                        
+                    </Card>
+                </div>
+            )}
+
+            {/* --- GAMEPLAY SCREEN --- */}
+            {gameState === 'GAME' && currentQuestion && (
+                <div className="flex-1 w-full flex flex-col items-center pt-20 pb-16 px-4 overflow-y-auto no-scrollbar">
+                    
+                    <TVFrame>
+                        <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
+                    </TVFrame>
+
+                    <div className="w-full max-w-md mt-4 flex-shrink-0">
+                        <div className="bg-[#3e2716] text-[#f0ead6] px-5 py-2 rounded-t-xl mx-2 border-b-2 border-[#5c3a21] flex items-center justify-between">
+                            <span className="font-bold tracking-widest text-sm uppercase text-[#d4af37]">Вопрос:</span>
+                            <div className="flex gap-1">
+                                <div className="w-2 h-2 rounded-full bg-[#cc3333]"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#d4af37]"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#4a7c59]"></div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-[#5c3a21] p-2 rounded-xl shadow-xl grid grid-cols-2 gap-2">
+                            {options.map((option, idx) => {
+                                let btnStyle = "";
+                                const isSelected = selectedOption === option;
+                                const isCorrect = option === currentQuestion.ru.title;
+
+                                if (isProcessing) {
+                                    if (isSelected) {
+                                        btnStyle = isCorrect ? "animate-correct !bg-[#4a7c59] !border-[#2e5239] !text-white" : "animate-wrong !bg-[#cc3333] !border-[#8a2323] !text-white";
+                                    } else if (isCorrect && selectedOption) {
+                                        // Show correct answer if wrong selected
+                                        btnStyle = "!bg-[#4a7c59] !border-[#2e5239] !text-white opacity-80";
+                                    } else {
+                                        btnStyle = "opacity-40";
+                                    }
+                                }
+
+                                return (
+                                    <Button 
+                                        key={idx} 
+                                        onClick={() => handleAnswer(option)}
+                                        className={`min-h-[56px] text-xs sm:text-sm normal-case leading-tight ${btnStyle}`}
+                                        disabled={isProcessing}
+                                    >
+                                        {option}
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- LEVEL COMPLETE SCREEN --- */}
+            {gameState === 'RESULT' && currentQuestion && (
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 pt-20 animate-fade-in">
+                    <Card className="w-full max-w-sm relative">
+                         {/* Stamp effect */}
+                         <div className={`absolute top-4 right-4 border-4 p-2 rounded rotate-[-12deg] font-ruslan text-xl z-20 opacity-80 mix-blend-multiply ${selectedOption === currentQuestion.ru.title ? 'border-[#4a7c59] text-[#4a7c59]' : 'border-[#cc3333] text-[#cc3333]'}`}>
+                            {selectedOption === currentQuestion.ru.title ? 'ВЕРНО' : 'ОШИБКА'}
+                         </div>
+
+                        <div className="w-full aspect-video bg-black rounded-lg border-2 border-[#3e2716] mb-4 overflow-hidden relative shadow-inner">
+                             <GameImage id={currentQuestion.id} title={currentQuestion.ru.title} />
+                        </div>
+
+                        <h3 className="text-2xl font-bold text-[#cc3333] mb-2 leading-none font-ruslan">{currentQuestion.ru.title}</h3>
+                        
+                        <div className="bg-[#f0ead6] p-3 rounded-lg border border-[#d1c7b7] text-sm text-[#5c3a21] mb-6 flex gap-3 items-start">
+                            <Info className="w-5 h-5 min-w-[20px] text-[#cc3333] mt-0.5" />
+                            <span className="italic">{currentQuestion.ru.desc}</span>
+                        </div>
+
+                        <Button variant="primary" onClick={nextQuestion}>
+                            СЛЕДУЮЩИЙ ВОПРОС
+                        </Button>
+                    </Card>
+                </div>
+            )}
+
+            {/* --- GAME OVER / SHOP SCREEN --- */}
+            {gameState === 'GAMEOVER' && (
+                <div className="flex-1 w-full flex flex-col items-center justify-center p-6 animate-fade-in">
+                    <Card className="w-full max-w-sm text-center border-[#cc3333]">
+                        <h2 className="text-5xl font-ruslan text-[#cc3333] mb-6 drop-shadow-md">КОНЕЦ<br/>ФИЛЬМА</h2>
+                        
+                        <div className="bg-[#3e2716] text-[#f0ead6] p-4 mb-6 rounded-xl shadow-inner border-b border-white/10">
+                            <p className="text-xs uppercase tracking-widest opacity-70 mb-1">Итоговый счет</p>
+                            <p className="text-5xl font-ruslan text-[#d4af37]">{score}</p>
+                        </div>
+
+                        {/* Fake Shop / Premium Revive Option */}
+                        <div className="mb-4">
+                            <Button variant="ad" onClick={handleRevive}>
+                                <div className="flex items-center justify-between w-full px-2">
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-bold text-lg flex items-center gap-2"> <Heart className="fill-white w-4 h-4"/> ВТОРОЙ ШАНС</span>
+                                        <span className="text-[10px] opacity-90 font-normal">Просмотр рекламы</span>
+                                    </div>
+                                    <div className="bg-white/20 px-2 py-1 rounded text-xs font-bold">БЕСПЛАТНО</div>
+                                </div>
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 mt-6 pt-6 border-t border-[#3e2716]/20">
+                            <Button variant="outline" onClick={goToMenu}>
+                                <Home className="w-5 h-5 mr-2" /> МЕНЮ
+                            </Button>
+                            <Button variant="share" onClick={handleShare}>
+                                <Share2 className="w-5 h-5 mr-2" /> ПОСТ
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
+            
         </div>
-        
-        <div className="text-center mt-6 text-white/60 text-sm font-semibold">
-           Вопросов осталось: {availableQuestions.length}
-        </div>
-      </div>
     );
 };
 
