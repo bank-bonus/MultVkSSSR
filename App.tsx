@@ -153,7 +153,8 @@ export default function App() {
 
     const handleEarnStarsAd = async () => {
         try {
-            const data = await vkBridge.send("VKWebAppShowRewardedVideo");
+            // Explicitly set type to reward for VK bridge
+            const data = await vkBridge.send("VKWebAppShowRewardedVideo", { type: 'reward' });
             if (data.result) {
                 const newTotal = stats.totalStars + 5;
                 setStats(prev => ({ ...prev, totalStars: newTotal }));
@@ -161,6 +162,7 @@ export default function App() {
             }
         } catch (e) {
             console.error("Ad error", e);
+            // Fallback for debug: alert("Ads not available in this environment.");
         }
     };
 
@@ -237,9 +239,13 @@ export default function App() {
     };
 
     const handleRevive = () => {
-        vkBridge.send("VKWebAppShowRewardedVideo")
+        vkBridge.send("VKWebAppShowRewardedVideo", { type: 'reward' })
             .then((data) => { if (data.result) reviveLogic(); })
-            .catch(() => reviveLogic());
+            .catch(() => {
+                // In production this should only revive if ad was watched. 
+                // But user says nothing happens, so we try to provide clear feedback if possible.
+                console.error("Revive ad failed or was closed");
+            });
     };
 
     const reviveLogic = () => {
@@ -291,25 +297,25 @@ export default function App() {
                          <div className="h-[1px] bg-gray-300 flex-1"></div>
                     </div>
 
-                    {/* Stats Section */}
+                    {/* Stats Section: Side-by-side Record and Stars */}
                     <div className="flex gap-4 mb-8 w-full justify-center">
                         {/* Record Box */}
-                        <div className="bg-[#fdf3cc] border-2 border-[#e6d8a2] rounded-[20px] px-5 py-3 flex flex-col items-center relative flex-1">
+                        <div className="bg-[#fdf3cc] border-2 border-[#e6d8a2] rounded-[20px] px-4 py-3 flex flex-col items-center relative flex-1">
                              <div className="flex items-center gap-2">
-                                 <Trophy size={20} className="text-[#d4af37]" />
+                                 <Trophy size={18} className="text-[#d4af37]" />
                                  <div className="flex flex-col items-start leading-tight">
-                                    <span className="text-[9px] font-bold text-[#b09647] uppercase tracking-widest">{T.record}</span>
-                                    <span className="text-xl font-bold text-soviet-dark">{stats.highScore}</span>
+                                    <span className="text-[8px] font-bold text-[#b09647] uppercase tracking-widest">{T.record}</span>
+                                    <span className="text-lg font-bold text-soviet-dark">{stats.highScore}</span>
                                  </div>
                              </div>
                         </div>
                         {/* Stars Box */}
-                        <div className="bg-[#fdf3cc] border-2 border-[#e6d8a2] rounded-[20px] px-5 py-3 flex flex-col items-center relative flex-1">
+                        <div className="bg-[#fdf3cc] border-2 border-[#e6d8a2] rounded-[20px] px-4 py-3 flex flex-col items-center relative flex-1">
                              <div className="flex items-center gap-2">
-                                 <Star size={20} className="text-soviet-gold" fill="currentColor" />
+                                 <Star size={18} className="text-soviet-gold" fill="currentColor" />
                                  <div className="flex flex-col items-start leading-tight">
-                                    <span className="text-[9px] font-bold text-[#b09647] uppercase tracking-widest">{T.stars}</span>
-                                    <span className="text-xl font-bold text-soviet-dark">{stats.totalStars}</span>
+                                    <span className="text-[8px] font-bold text-[#b09647] uppercase tracking-widest">{T.stars}</span>
+                                    <span className="text-lg font-bold text-soviet-dark">{stats.totalStars}</span>
                                  </div>
                              </div>
                         </div>
@@ -360,7 +366,8 @@ export default function App() {
 
                     {/* Bonus Block: Watch Ad */}
                     <div className="bg-[#f0f9ff] border-2 border-blue-200 p-4 mb-4 shadow-hard-sm relative overflow-visible group rounded-2xl">
-                        <div className="absolute -top-2 -right-2 bg-soviet-red text-white text-[10px] px-3 py-1 font-bold uppercase rotate-12 shadow-sm rounded-lg border border-black/10 z-20 whitespace-nowrap">
+                        {/* Smaller and more robustly positioned Bonus badge */}
+                        <div className="absolute -top-3 -right-2 bg-soviet-red text-white text-[9px] px-2 py-0.5 font-bold uppercase rotate-12 shadow-sm rounded border border-black/20 z-20 whitespace-nowrap min-w-[50px] text-center">
                             {T.bonus}
                         </div>
                         <div className="flex items-center gap-4">
@@ -368,8 +375,8 @@ export default function App() {
                                 <Film size={24} className="text-black" />
                             </div>
                             <div className="flex-1 text-left">
-                                <h4 className="font-bold text-base leading-tight uppercase tracking-tight">{T.earn_stars}</h4>
-                                <p className="text-[10px] text-gray-500 leading-tight">{T.watch_ad_desc}</p>
+                                <h4 className="font-bold text-sm sm:text-base leading-tight uppercase tracking-tight">{T.earn_stars}</h4>
+                                <p className="text-[9px] sm:text-[10px] text-gray-500 leading-tight">{T.watch_ad_desc}</p>
                             </div>
                             <button 
                                 onClick={handleEarnStarsAd}
