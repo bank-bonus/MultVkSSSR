@@ -4,83 +4,116 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>СоюзМультКвиз</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Ruslan+Display&display=swap" rel="stylesheet">
-    <!-- VK Bridge for VK/OK Games interaction -->
-    <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'ruslan': ['"Ruslan Display"', 'cursive'],
+                        'oswald': ['"Oswald"', 'sans-serif'],
+                    },
+                    colors: {
+                        'soviet-red': '#D92B2B',
+                        'soviet-dark': '#3e2723', // Dark brown like the border in screenshot
+                        'soviet-gold': '#F4C430',
+                        'soviet-cream': '#F9F4E0',
+                        'soviet-green': '#4A855F',
+                        'soviet-accent': '#E85F5C',
+                    },
+                    boxShadow: {
+                        'hard': '0px 4px 0px 0px rgba(0,0,0,0.2)',
+                        'menu-card': '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'wobble': 'wobble 0.5s ease-in-out',
+                        'shake': 'shake 0.4s cubic-bezier(.36,.07,.19,.97) both',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-5px)' },
+                        },
+                        wobble: {
+                            '0%, 100%': { transform: 'rotate(0)' },
+                            '25%': { transform: 'rotate(-2deg)' },
+                            '75%': { transform: 'rotate(2deg)' },
+                        },
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        html, body {
-            height: 100%;
-            width: 100%;
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            overscroll-behavior: none;
-            -webkit-overflow-scrolling: touch;
-            user-select: none;
-            -webkit-user-select: none;
-        }
         body {
-            font-family: 'Oswald', sans-serif;
-            background-color: #f4f1ea;
-            color: #2c2c2c;
-        }
-        #root {
-            height: 100%;
+            overscroll-behavior: none;
+            background-color: #f1ede4;
+            background-image: radial-gradient(#d1ccc0 1.5px, transparent 1.5px);
+            background-size: 18px 18px;
+            -webkit-user-select: none;
+            user-select: none;
+            overflow-x: hidden;
             width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-        }
-
-        /* Background Pattern */
-        .bg-pattern {
-            background-color: #f4f1ea;
-            background-image: radial-gradient(#d1c7b7 1.5px, transparent 1.5px), radial-gradient(#d1c7b7 1.5px, #f4f1ea 1.5px);
-            background-size: 20px 20px;
-            background-position: 0 0, 10px 10px;
         }
         
-        /* Retro TV Scanline effect */
+        .paper-texture::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 5;
+            opacity: 0.5;
+        }
+
         .scanlines {
             background: linear-gradient(
                 to bottom,
                 rgba(255,255,255,0),
                 rgba(255,255,255,0) 50%,
-                rgba(0,0,0,0.1) 50%,
-                rgba(0,0,0,0.1)
+                rgba(0,0,0,0.15) 50%,
+                rgba(0,0,0,0.15)
             );
             background-size: 100% 4px;
-            pointer-events: none;
+        }
+        
+        .wood-pattern {
+            background-color: #4e311a;
+            background-image: linear-gradient(90deg, transparent 50%, rgba(255,255,255,.05) 50%),
+                              linear-gradient(90deg, rgba(255,255,255,.05) 50%, transparent 50%);
+            background-size: 10px 100%;
         }
 
-        /* Custom Animations */
-        @keyframes blink-green {
-            0%, 100% { background-color: #4a7c59; color: white; border-color: #2e5239; transform: translateY(4px); box-shadow: 0 0 0 #2e5239; }
-            50% { transform: translateY(4px); }
-        }
-        @keyframes shake-red {
-            0%, 100% { transform: translateX(0); background-color: #cc3333; color: white; border-color: #8a2323; }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        .animate-correct { animation: blink-green 0.3s forwards; }
-        .animate-wrong { animation: shake-red 0.4s forwards; }
-        
-        .font-ruslan { font-family: 'Ruslan Display', cursive; }
-        
-        /* Utility for 3D button press effect */
-        .btn-press:active {
-            transform: translateY(4px) !important;
-            box-shadow: 0 0 0 transparent !important;
+        #root {
+            width: 100%;
+            overflow-x: hidden;
         }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^18.3.1/",
-    "react": "https://esm.sh/react@^18.3.1",
-    "lucide-react": "https://esm.sh/lucide-react@^0.263.1"
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "@vkontakte/vk-bridge": "https://esm.sh/@vkontakte/vk-bridge@^2.15.10"
   }
 }
 </script>
@@ -88,6 +121,7 @@
 </head>
 <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
+<script type="module" src="/index.tsx"></script>
 </body>
 </html>
