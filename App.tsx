@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import vkBridge from '@vkontakte/vk-bridge';
 import { CARTOONS, TRANSLATIONS } from './data';
 import { Cartoon, GameState, Language, PlayerStats } from './types';
-import { Play, Home, RefreshCw, ShoppingCart, Heart, Star, Settings, Pause, X, RotateCcw, Clapperboard, Award, Shield, Zap, Tv, Film, Trophy, BarChart3 } from 'lucide-react';
+import { Play, Home, RefreshCw, ShoppingCart, Heart, Star, Settings, Pause, X, RotateCcw, Clapperboard, Award, Shield, Zap, Tv, Film, Trophy, CheckCircle } from 'lucide-react';
 
 // --- Constants ---
 
@@ -48,22 +48,16 @@ const Button: React.FC<{
 
 const TVFrame: React.FC<{ imageUrl: string; label: string }> = ({ imageUrl, label }) => (
     <div className="relative w-full max-w-[90vw] sm:max-w-md mx-auto z-10 animate-slide-up">
-        {/* Antenna */}
         <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-32 h-12 pointer-events-none opacity-40">
             <div className="absolute bottom-0 left-4 w-0.5 h-10 bg-gray-600 rotate-[-25deg] origin-bottom"></div>
             <div className="absolute bottom-0 right-4 w-0.5 h-10 bg-gray-600 rotate-[25deg] origin-bottom"></div>
         </div>
-
-        {/* TV Body */}
         <div className="wood-pattern p-3 sm:p-4 rounded-xl border-4 border-[#2a110a] shadow-hard-lg relative">
             <div className="flex gap-2 sm:gap-4 items-stretch">
-                {/* Screen Area */}
                 <div className="flex-1 aspect-[4/3] bg-black rounded-lg border-2 border-black relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,1)]">
                     <img src={imageUrl} alt="Quiz" className="w-full h-full object-cover relative z-10 sepia-[0.1] contrast-110" />
                     <div className="absolute inset-0 z-20 pointer-events-none scanlines opacity-30"></div>
                 </div>
-
-                {/* Control Panel Area */}
                 <div className="flex flex-col gap-1.5 w-8 sm:w-12 items-center justify-start bg-[#1a110a] rounded p-1 border border-black/30">
                      <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-[#444] border border-black shadow-hard-sm"></div>
                      <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-[#444] border border-black shadow-hard-sm"></div>
@@ -72,8 +66,6 @@ const TVFrame: React.FC<{ imageUrl: string; label: string }> = ({ imageUrl, labe
                      </div>
                 </div>
             </div>
-
-            {/* Brand Label */}
             <div className="absolute bottom-[-8px] left-6 bg-soviet-dark text-soviet-gold text-[8px] font-bold px-1.5 py-0.5 border border-soviet-gold tracking-tighter shadow-sm uppercase">
                 {label}
             </div>
@@ -94,6 +86,7 @@ export default function App() {
     const [isWrong, setIsWrong] = useState(false);
     
     const [stats, setStats] = useState<PlayerStats>({ highScore: 0, totalStars: 0 });
+    const [notification, setNotification] = useState<string | null>(null);
 
     const [currentQuestion, setCurrentQuestion] = useState<Cartoon | null>(null);
     const [options, setOptions] = useState<Cartoon[]>([]);
@@ -155,7 +148,6 @@ export default function App() {
 
     const handleEarnStarsAd = async () => {
         try {
-            // Using correct param structure for VK rewarded video
             const data = await vkBridge.send("VKWebAppShowRewardedVideo", { type: 'reward' });
             if (data.result) {
                 const newTotal = stats.totalStars + 5;
@@ -164,6 +156,7 @@ export default function App() {
                   updateStorage(updated.highScore, updated.totalStars);
                   return updated;
                 });
+                showNotification("+5 ⭐");
             }
         } catch (e) {
             console.error("Ad error:", e);
@@ -187,6 +180,11 @@ export default function App() {
         nextQuestion(usedQuestionIds);
     };
 
+    const showNotification = (msg: string) => {
+        setNotification(msg);
+        setTimeout(() => setNotification(null), 2500);
+    };
+
     const buyItem = (item: any) => {
         if (stats.totalStars < item.price) return;
         
@@ -197,9 +195,7 @@ export default function App() {
           return updated;
         });
 
-        // Effect logic (placeholder or permanent stats could be added here)
-        // For now, it just subtracts stars as a functional "buy" button.
-        alert(lang === 'ru' ? `Куплено: ${item.name.ru}` : `Bought: ${item.name.en}`);
+        showNotification(`${T.bought_success} ${item.name[lang]}`);
     };
 
     const startGame = () => {
@@ -240,7 +236,6 @@ export default function App() {
         setSelectedId(selected.id);
         const isCorrect = selected.id === currentQuestion.id;
         
-        // Delay to let user see feedback
         setTimeout(() => {
             if (!isCorrect) {
                 setIsWrong(true);
@@ -276,6 +271,17 @@ export default function App() {
 
     const togglePause = () => setGameState(curr => curr === 'playing' ? 'paused' : 'playing');
     const goMenu = () => { if (score > 0) saveStats(score, stars); setGameState('menu'); };
+
+    // --- Components ---
+
+    const NotificationOverlay = () => notification && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] animate-bounce">
+            <div className="bg-soviet-green text-white px-6 py-3 border-4 border-black shadow-hard rounded-2xl flex items-center gap-3">
+                <CheckCircle size={24} />
+                <span className="font-oswald font-bold tracking-tight uppercase">{notification}</span>
+            </div>
+        </div>
+    );
 
     // --- Screens ---
 
@@ -333,14 +339,15 @@ export default function App() {
     if (gameState === 'shop') {
         return (
             <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 font-oswald paper-texture overflow-x-hidden">
+                <NotificationOverlay />
                 <div className="max-w-md w-full bg-white border-4 border-soviet-dark p-6 rounded-[32px] shadow-hard-lg relative animate-slide-up">
-                     <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-soviet-red text-soviet-cream px-8 py-2 border-2 border-black shadow-hard font-bold tracking-widest -rotate-1 text-xl rounded-full">{T.shop_title}</div>
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-soviet-red text-soviet-cream px-8 py-2 border-2 border-black shadow-hard font-bold tracking-widest -rotate-1 text-xl rounded-full">{T.shop_title}</div>
                     <div className="mt-8 flex justify-between items-center mb-6 border-b-2 border-dashed border-black/10 pb-4">
                         <span className="font-ruslan text-2xl text-soviet-dark">{T.stars}</span>
                         <span className="font-bold text-xl bg-soviet-gold border-2 border-black px-4 py-1.5 flex items-center gap-2 shadow-hard-sm animate-wobble rounded-full">{stats.totalStars} <Star size={20} fill="black" /></span>
                     </div>
                     <div className="bg-[#f0f9ff] border-2 border-blue-200 p-4 mb-4 shadow-hard-sm relative overflow-visible group rounded-2xl">
-                        <div className="absolute -top-3 -right-2 bg-soviet-red text-white text-[10px] px-3 py-1 font-bold uppercase rotate-12 shadow-sm rounded-lg border border-black/10 z-20 whitespace-nowrap min-w-[60px] text-center">{T.bonus}</div>
+                        <div className="absolute -top-3 -right-2 bg-soviet-red text-white text-[9px] px-2 py-0.5 font-bold uppercase rotate-12 shadow-sm rounded border border-black/20 z-20 whitespace-nowrap min-w-[50px] text-center">{T.bonus}</div>
                         <div className="flex items-center gap-4">
                             <div className="p-2 bg-soviet-gold border-2 border-black rounded-xl shadow-hard-sm group-hover:scale-110 transition-transform"><Film size={24} className="text-black" /></div>
                             <div className="flex-1 text-left">
@@ -415,6 +422,7 @@ export default function App() {
 
     return (
         <div className="min-h-screen w-full flex flex-col bg-soviet-cream font-oswald relative paper-texture overflow-x-hidden">
+            <NotificationOverlay />
             <div className="bg-soviet-red border-b-4 border-black p-2.5 pt-safe-top z-50 sticky top-0 shadow-hard w-full">
                 <div className="max-w-lg mx-auto flex justify-between items-end gap-2 px-1">
                     <div className="bg-soviet-cream border-2 border-black px-2.5 py-1 shadow-hard-sm transform -rotate-1 min-w-[65px] rounded-lg">
