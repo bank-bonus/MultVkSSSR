@@ -1,0 +1,1 @@
+keytool -genkey -v -keystore my-release-key.keystore -alias my-key-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass 123456 -keypass 123456 -dname "CN=MyName, OU=Dev, O=MyOrg, L=Moscow, S=MSK, C=RU"
