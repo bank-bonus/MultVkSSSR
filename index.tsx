@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import vkBridge from '@vkontakte/vk-bridge';
 import App from './App';
-import './index.css';
 
 // 1. Инициализируем VK Bridge сразу при загрузке
 // isEmbedded() позволяет понять, находимся ли мы внутри приложения ВК
