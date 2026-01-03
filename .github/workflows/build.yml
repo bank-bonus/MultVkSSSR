@@ -49,7 +49,7 @@ jobs:
           # Отключаем проверку уникальности имен пакетов
           echo "android.enforceUniquePackageName=false" >> android/gradle.properties
           
-          # Решаем конфликт Kotlin stdlib и исключаем старые модули jdk7/jdk8
+          # Решаем конфликт Kotlin и исключаем дубликаты
           cat <<EOT >> android/app/build.gradle
           configurations.all {
               resolutionStrategy.eachDependency { DependencyResolveDetails details ->
@@ -69,7 +69,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease \
             -x lintVitalRelease \
-            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/android/app/release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEYSTORE_PASSWORD }}
