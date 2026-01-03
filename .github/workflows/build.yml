@@ -35,16 +35,19 @@ jobs:
           fi
           npx cap sync android
 
+      - name: Generate Keystore Automatically
+        run: |
+          keytool -genkey -v -keystore android/app/release.keystore \
+            -alias ${{ secrets.KEY_ALIAS }} \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
+            -keypass ${{ secrets.KEYSTORE_PASSWORD }} \
+            -dname "CN=MyName, OU=Dev, O=MyOrg, L=Moscow, S=MSK, C=RU"
+
       - name: Force Fix Duplicate Classes
         run: |
-          # Вставляем конфигурацию для удаления дубликатов прямо в начало блока dependencies
-          sed -i '/dependencies {/a \    constraints {\n        implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")\n    }' android/app/build.gradle
-          
-          # Альтернативный способ через конфигурации
+          echo "android.enforceUniquePackageName=false" >> android/gradle.properties
           echo "configurations.all { exclude group: 'com.google.guava', module: 'listenablefuture' }" >> android/app/build.gradle
-
-      - name: Decode Keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
 
       - name: Build Release APK
         run: |
