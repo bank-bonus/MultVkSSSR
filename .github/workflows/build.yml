@@ -29,14 +29,18 @@ jobs:
 
       - name: Create Android Project
         run: |
-          # Эта часть создает папку android, если её нет в вашем GitHub
-          npx cap init "MultVkSSSR" "com.multvk.sssr" --web-dir dist
-          npx cap add android
+          if [ ! -d "android" ]; then
+            npx cap init "MultVkSSSR" "com.multvk.sssr" --web-dir dist
+            npx cap add android
+          fi
           npx cap sync android
 
-      - name: Fix Duplicate Classes
+      - name: Force Fix Duplicate Classes
         run: |
-          # Автоматически добавляем исправление дубликатов в сгенерированный файл
+          # Вставляем конфигурацию для удаления дубликатов прямо в начало блока dependencies
+          sed -i '/dependencies {/a \    constraints {\n        implementation("com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava")\n    }' android/app/build.gradle
+          
+          # Альтернативный способ через конфигурации
           echo "configurations.all { exclude group: 'com.google.guava', module: 'listenablefuture' }" >> android/app/build.gradle
 
       - name: Decode Keystore
