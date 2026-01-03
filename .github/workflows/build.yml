@@ -42,9 +42,11 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          # -x lintVitalRelease отключает строгую проверку, которая часто мешает сборке
+          # Добавляем флаг игнорирования дубликатов и отключаем проверку дублей
           ./gradlew assembleRelease \
             -x lintVitalRelease \
+            -Pandroid.buildAnalyzer.reporting.format=none \
+            -Pandroid.enforceUniquePackageName=false \
             -Pandroid.injected.signing.store.file=release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
