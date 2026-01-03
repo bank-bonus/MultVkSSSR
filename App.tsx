@@ -1,18 +1,43 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import vkBridge from '@vkontakte/vk-bridge';
 import { CARTOONS, TRANSLATIONS } from './data';
 import { Cartoon, GameState, Language, PlayerStats } from './types';
-import { Play, Home, RefreshCw, ShoppingCart, Heart, Star, Settings, Pause, X, RotateCcw, Clapperboard, Award, Shield, Zap, Tv, Film, Trophy, CheckCircle } from 'lucide-react';
+import { Play, Home, RefreshCw, ShoppingCart, Heart, Star, Settings, Pause, ShoppingBag, Clapperboard, Award, Shield, Zap, Tv, Film, Trophy, CheckCircle2, Info, Camera, Palette } from 'lucide-react';
+
+// --- Types ---
+
+interface ShopItem {
+    id: string;
+    icon: any;
+    price: number;
+    name: Record<string, string>;
+    desc: Record<string, string>;
+    type: 'powerup' | 'skin';
+}
 
 // --- Constants ---
 
-const SHOP_ITEMS = [
-    { id: 'shield', icon: Shield, price: 10, name: { ru: 'Защита', en: 'Shield', tr: 'Kalkan' }, desc: { ru: '+1 жизнь в игре', en: '+1 life in game', tr: '+1 can' } },
-    { id: 'boost', icon: Zap, price: 25, name: { ru: 'Буст', en: 'Boost', tr: 'Takviye' }, desc: { ru: 'x2 звезды за уровень', en: 'x2 stars per level', tr: 'Seviye başı x2 yıldız' } },
-    { id: 'master', icon: Award, price: 50, name: { ru: 'Знаток', en: 'Master', tr: 'Usta' }, desc: { ru: 'Золотая рамка ТВ', en: 'Gold TV Frame', tr: 'Altın TV Çerçevesi' } }
+const SHOP_ITEMS: ShopItem[] = [
+    { id: 'shield', icon: Shield, price: 50, name: { ru: 'Защита', en: 'Shield', tr: 'Kalkan' }, desc: { ru: '+1 жизнь на одну игру', en: '+1 life for one game', tr: 'Bir oyun için +1 can' }, type: 'powerup' },
+    { id: 'boost', icon: Zap, price: 100, name: { ru: 'Буст x2', en: 'Boost x2', tr: 'Takviye x2' }, desc: { ru: 'x2 звезды на одну игру', en: 'x2 stars for one game', tr: 'Bir oyun için x2 yıldız' }, type: 'powerup' },
+    { id: 'master', icon: Award, price: 500, name: { ru: 'Знаток', en: 'Master', tr: 'Usta' }, desc: { ru: 'Золотой телевизор', en: 'Gold TV Frame', tr: 'Altın TV Çerçevesi' }, type: 'skin' },
+    { id: 'tv_red', icon: Tv, price: 200, name: { ru: 'Красный ТВ', en: 'Red TV', tr: 'Kırmızı TV' }, desc: { ru: 'Красный корпус', en: 'Red body', tr: 'Kırmızı gövde' }, type: 'skin' },
+    { id: 'tv_silver', icon: Palette, price: 300, name: { ru: 'Серебряный ТВ', en: 'Silver TV', tr: 'Gümüş TV' }, desc: { ru: 'Металлический блеск', en: 'Silver body', tr: 'Gümüş gövde' }, type: 'skin' }
 ];
 
 // --- Components ---
+
+const Toast: React.FC<{ message: string | null }> = ({ message }) => {
+    if (!message) return null;
+    return (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none w-full flex justify-center px-4">
+            <div className="bg-soviet-dark/95 text-white px-6 py-3 rounded-full border-2 border-black shadow-hard-lg flex items-center gap-3 animate-slide-up">
+                <Info size={18} className="text-soviet-gold" />
+                <span className="font-oswald font-bold text-xs uppercase tracking-widest text-center">{message}</span>
+            </div>
+        </div>
+    );
+};
 
 const Button: React.FC<{
     children: React.ReactNode;
@@ -24,9 +49,7 @@ const Button: React.FC<{
     rounded?: boolean;
 }> = ({ children, onClick, variant = 'primary', className = '', disabled = false, fullWidth = false, rounded = false }) => {
     const baseStyle = `relative font-oswald uppercase tracking-widest font-bold py-3 px-6 transition-all transform active:translate-y-[4px] active:shadow-none flex items-center justify-center gap-3 z-10 ${rounded ? 'rounded-2xl' : 'border-2 border-black'}`;
-    
     const shadowStyle = disabled ? "shadow-none" : "shadow-[0_6px_0_0_rgba(0,0,0,0.15)]";
-
     const variants = {
         primary: "bg-soviet-red text-white",
         secondary: "bg-soviet-gold text-soviet-dark",
@@ -35,7 +58,6 @@ const Button: React.FC<{
         correct: "bg-soviet-green text-white scale-105",
         wrong: "bg-soviet-red text-white animate-shake"
     };
-
     return (
         <button 
             onClick={disabled ? undefined : onClick}
@@ -46,32 +68,43 @@ const Button: React.FC<{
     );
 };
 
-const TVFrame: React.FC<{ imageUrl: string; label: string }> = ({ imageUrl, label }) => (
-    <div className="relative w-full max-w-[90vw] sm:max-w-md mx-auto z-10 animate-slide-up">
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-32 h-12 pointer-events-none opacity-40">
-            <div className="absolute bottom-0 left-4 w-0.5 h-10 bg-gray-600 rotate-[-25deg] origin-bottom"></div>
-            <div className="absolute bottom-0 right-4 w-0.5 h-10 bg-gray-600 rotate-[25deg] origin-bottom"></div>
-        </div>
-        <div className="wood-pattern p-3 sm:p-4 rounded-xl border-4 border-[#2a110a] shadow-hard-lg relative">
-            <div className="flex gap-2 sm:gap-4 items-stretch">
-                <div className="flex-1 aspect-[4/3] bg-black rounded-lg border-2 border-black relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,1)]">
-                    <img src={imageUrl} alt="Quiz" className="w-full h-full object-cover relative z-10 sepia-[0.1] contrast-110" />
-                    <div className="absolute inset-0 z-20 pointer-events-none scanlines opacity-30"></div>
+const TVFrame: React.FC<{ imageUrl: string; label: string; skin?: string }> = ({ imageUrl, label, skin }) => {
+    const getSkinStyles = () => {
+        switch(skin) {
+            case 'master': return 'bg-gradient-to-br from-yellow-400 via-yellow-200 to-yellow-600 border-yellow-800 shadow-yellow-500/20';
+            case 'tv_red': return 'bg-soviet-red border-red-900 shadow-red-500/20';
+            case 'tv_silver': return 'bg-gradient-to-br from-gray-300 via-white to-gray-500 border-gray-600 shadow-gray-400/20';
+            default: return 'wood-pattern border-[#2a110a]';
+        }
+    };
+    const isMetallic = skin === 'master' || skin === 'tv_silver';
+    return (
+        <div className="relative w-full max-w-[90vw] sm:max-w-md mx-auto z-10 animate-slide-up">
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-32 h-12 pointer-events-none opacity-40">
+                <div className="absolute bottom-0 left-4 w-0.5 h-10 bg-gray-600 rotate-[-25deg] origin-bottom"></div>
+                <div className="absolute bottom-0 right-4 w-0.5 h-10 bg-gray-600 rotate-[25deg] origin-bottom"></div>
+            </div>
+            <div className={`${getSkinStyles()} p-3 sm:p-4 rounded-xl border-4 shadow-hard-lg relative`}>
+                <div className="flex gap-2 sm:gap-4 items-stretch">
+                    <div className="flex-1 aspect-[4/3] bg-black rounded-lg border-2 border-black relative overflow-hidden shadow-[inset_0_0_20px_rgba(0,0,0,1)]">
+                        <img src={imageUrl} alt="Quiz" className="w-full h-full object-cover relative z-10 sepia-[0.1] contrast-110" />
+                        <div className="absolute inset-0 z-20 pointer-events-none scanlines opacity-30"></div>
+                    </div>
+                    <div className={`flex flex-col gap-1.5 w-8 sm:w-12 items-center justify-start ${isMetallic ? 'bg-black/20' : 'bg-[#1a110a]'} rounded p-1 border border-black/30`}>
+                         <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-[#444] border border-black shadow-hard-sm"></div>
+                         <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-[#444] border border-black shadow-hard-sm"></div>
+                         <div className="w-full flex-1 flex flex-col gap-1 mt-1 px-0.5 opacity-60">
+                            {[...Array(6)].map((_,i) => <div key={i} className="w-full h-0.5 bg-black/80 rounded-full"></div>)}
+                         </div>
+                    </div>
                 </div>
-                <div className="flex flex-col gap-1.5 w-8 sm:w-12 items-center justify-start bg-[#1a110a] rounded p-1 border border-black/30">
-                     <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-[#444] border border-black shadow-hard-sm"></div>
-                     <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full bg-[#444] border border-black shadow-hard-sm"></div>
-                     <div className="w-full flex-1 flex flex-col gap-1 mt-1 px-0.5 opacity-60">
-                        {[...Array(6)].map((_,i) => <div key={i} className="w-full h-0.5 bg-black/80 rounded-full"></div>)}
-                     </div>
+                <div className={`absolute bottom-[-8px] left-6 ${isMetallic ? 'bg-gray-800 text-white' : 'bg-soviet-dark text-soviet-gold'} text-[8px] font-bold px-1.5 py-0.5 border border-black/30 tracking-tighter shadow-sm uppercase`}>
+                    {label}
                 </div>
             </div>
-            <div className="absolute bottom-[-8px] left-6 bg-soviet-dark text-soviet-gold text-[8px] font-bold px-1.5 py-0.5 border border-soviet-gold tracking-tighter shadow-sm uppercase">
-                {label}
-            </div>
         </div>
-    </div>
-);
+    );
+};
 
 // --- Main App ---
 
@@ -85,18 +118,31 @@ export default function App() {
     const [stars, setStars] = useState(0);
     const [isWrong, setIsWrong] = useState(false);
     
+    // Stats & Persistence - Initial stars set to 0
     const [stats, setStats] = useState<PlayerStats>({ highScore: 0, totalStars: 0 });
-    const [notification, setNotification] = useState<string | null>(null);
+    const [purchasedSkins, setPurchasedSkins] = useState<Set<string>>(new Set());
+    const [activePowerups, setActivePowerups] = useState<Set<string>>(new Set());
+    const [activeTvSkin, setActiveTvSkin] = useState<string>('default');
 
+    // UI State
+    const [toast, setToast] = useState<string | null>(null);
+    const [purchaseModal, setPurchaseModal] = useState<{item: ShopItem, success: boolean} | null>(null);
+    const [cinemaCartoon, setCinemaCartoon] = useState<Cartoon | null>(null);
+
+    const T = TRANSLATIONS[lang];
+
+    const showToast = (msg: string) => {
+        setToast(msg);
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    // Game logic
     const [currentQuestion, setCurrentQuestion] = useState<Cartoon | null>(null);
     const [options, setOptions] = useState<Cartoon[]>([]);
     const [usedQuestionIds, setUsedQuestionIds] = useState<Set<string>>(new Set());
-    
     const [lastResult, setLastResult] = useState<{correct: boolean, correctItem: Cartoon} | null>(null);
     const [answeredCount, setAnsweredCount] = useState(0);
     const [selectedId, setSelectedId] = useState<string | null>(null);
-
-    const T = TRANSLATIONS[lang];
 
     // Initialize VK & Load Data
     useEffect(() => {
@@ -106,110 +152,111 @@ export default function App() {
                 const userLang = navigator.language.split('-')[0];
                 if (['en', 'tr'].includes(userLang)) setLang(userLang as Language);
 
-                const storage = await vkBridge.send('VKWebAppStorageGet', { keys: ['highScore', 'totalStars'] });
-                const loadedStats = { highScore: 0, totalStars: 0 };
+                const storage = await vkBridge.send('VKWebAppStorageGet', { 
+                    keys: ['highScore', 'totalStars', 'purchasedSkins', 'activeSkin', 'activePowerups'] 
+                });
+                
                 if (storage.keys) {
-                  storage.keys.forEach(k => {
-                      if (k.key === 'highScore') loadedStats.highScore = parseInt(k.value) || 0;
-                      if (k.key === 'totalStars') loadedStats.totalStars = parseInt(k.value) || 0;
-                  });
+                    const loadedStats = { highScore: 0, totalStars: 0 };
+                    storage.keys.forEach(k => {
+                        if (k.key === 'highScore') loadedStats.highScore = parseInt(k.value) || 0;
+                        if (k.key === 'totalStars') loadedStats.totalStars = parseInt(k.value) || 0;
+                        if (k.key === 'purchasedSkins') setPurchasedSkins(new Set<string>(JSON.parse(k.value || '[]')));
+                        if (k.key === 'activeSkin') setActiveTvSkin(k.value || 'default');
+                        if (k.key === 'activePowerups') setActivePowerups(new Set<string>(JSON.parse(k.value || '[]')));
+                    });
+                    setStats(loadedStats);
                 }
-                setStats(loadedStats);
             } catch (e) {
                 console.error("VK Init Error", e);
-                const localScore = localStorage.getItem('sovietQuizHighScore');
-                const localStars = localStorage.getItem('sovietQuizStars');
-                setStats({
-                    highScore: localScore ? parseInt(localScore) : 0,
-                    totalStars: localStars ? parseInt(localStars) : 0
-                });
             }
         };
         initVK();
     }, []);
 
-    const updateStorage = (newHighScore: number, newStars: number) => {
+    const updateStorage = (newHighScore: number, newStars: number, skins?: Set<string>, skin?: string, powerups?: Set<string>) => {
         try {
             vkBridge.send('VKWebAppStorageSet', { key: 'highScore', value: newHighScore.toString() });
             vkBridge.send('VKWebAppStorageSet', { key: 'totalStars', value: newStars.toString() });
+            if (skins) vkBridge.send('VKWebAppStorageSet', { key: 'purchasedSkins', value: JSON.stringify(Array.from(skins)) });
+            if (skin) vkBridge.send('VKWebAppStorageSet', { key: 'activeSkin', value: skin });
+            if (powerups) vkBridge.send('VKWebAppStorageSet', { key: 'activePowerups', value: JSON.stringify(Array.from(powerups)) });
         } catch(e) { console.error(e); }
-        localStorage.setItem('sovietQuizHighScore', newHighScore.toString());
-        localStorage.setItem('sovietQuizStars', newStars.toString());
     };
 
-    const saveStats = (newScore: number, earnedStars: number) => {
-        const newStats = {
-            highScore: Math.max(stats.highScore, newScore),
-            totalStars: stats.totalStars + earnedStars
-        };
-        setStats(newStats);
-        updateStorage(newStats.highScore, newStats.totalStars);
-    };
-
-    const handleEarnStarsAd = async () => {
-        try {
-            const data = await vkBridge.send("VKWebAppShowRewardedVideo", { type: 'reward' });
-            if (data.result) {
-                const newTotal = stats.totalStars + 5;
-                setStats(prev => {
-                  const updated = { ...prev, totalStars: newTotal };
-                  updateStorage(updated.highScore, updated.totalStars);
-                  return updated;
-                });
-                showNotification("+5 ⭐");
-            }
-        } catch (e) {
-            console.error("Ad error:", e);
+    const handleWatchCartoon = () => {
+        if (stats.totalStars >= 1000) {
+            const randomC = CARTOONS[Math.floor(Math.random() * CARTOONS.length)];
+            const newTotal = stats.totalStars - 1000;
+            setStats(prev => ({ ...prev, totalStars: newTotal }));
+            updateStorage(stats.highScore, newTotal, purchasedSkins, activeTvSkin, activePowerups);
+            setCinemaCartoon(randomC);
+        } else {
+            showToast(T.ad_not_ready);
         }
     };
 
-    const handleRevive = async () => {
-        try {
-            const data = await vkBridge.send("VKWebAppShowRewardedVideo", { type: 'reward' });
-            if (data.result) {
-                reviveLogic();
+    const handlePurchase = (item: ShopItem) => {
+        if (item.type === 'skin') {
+            if (purchasedSkins.has(item.id)) {
+                setActiveTvSkin(item.id);
+                updateStorage(stats.highScore, stats.totalStars, purchasedSkins, item.id, activePowerups);
+                showToast(lang === 'ru' ? "Дизайн изменен" : "TV skin changed");
+                return;
             }
-        } catch (e) {
-            console.error("Revive Ad error:", e);
+        } else {
+            if (activePowerups.has(item.id)) {
+                showToast(lang === 'ru' ? "Бонус уже активирован на эту игру" : "Already active for this game");
+                return;
+            }
         }
-    };
-
-    const reviveLogic = () => {
-        setLives(1);
-        setGameState('playing');
-        nextQuestion(usedQuestionIds);
-    };
-
-    const showNotification = (msg: string) => {
-        setNotification(msg);
-        setTimeout(() => setNotification(null), 2500);
-    };
-
-    const buyItem = (item: any) => {
-        if (stats.totalStars < item.price) return;
         
-        const newTotal = stats.totalStars - item.price;
-        setStats(prev => {
-          const updated = { ...prev, totalStars: newTotal };
-          updateStorage(updated.highScore, updated.totalStars);
-          return updated;
-        });
+        if (stats.totalStars >= item.price) {
+            setPurchaseModal({ item, success: false });
+        } else {
+            showToast(T.ad_not_ready);
+        }
+    };
 
-        showNotification(`${T.bought_success} ${item.name[lang]}`);
+    const confirmPurchase = () => {
+        if (!purchaseModal) return;
+        const item = purchaseModal.item;
+        const newTotal = stats.totalStars - item.price;
+        
+        let newSkins = purchasedSkins;
+        let newSkin = activeTvSkin;
+        let newPowerups = activePowerups;
+
+        if (item.type === 'skin') {
+            newSkins = new Set(purchasedSkins).add(item.id);
+            newSkin = item.id;
+        } else {
+            newPowerups = new Set(activePowerups).add(item.id);
+        }
+
+        setStats(prev => ({ ...prev, totalStars: newTotal }));
+        setPurchasedSkins(newSkins);
+        setActiveTvSkin(newSkin);
+        setActivePowerups(newPowerups);
+        
+        updateStorage(stats.highScore, newTotal, newSkins, newSkin, newPowerups);
+        setPurchaseModal({ item, success: true });
     };
 
     const startGame = () => {
         setScore(0);
-        setLives(3);
-        setMaxLives(3);
+        // Bonus life logic
+        const bonusLives = activePowerups.has('shield') ? 1 : 0;
+        const startingLives = 3 + bonusLives;
+        setLives(startingLives);
+        setMaxLives(startingLives);
         setLevel(1);
         setStars(0);
         setAnsweredCount(0);
         setSelectedId(null);
-        const initialUsed = new Set<string>();
-        setUsedQuestionIds(initialUsed);
+        setUsedQuestionIds(new Set());
         setGameState('playing');
-        nextQuestion(initialUsed);
+        nextQuestion(new Set());
     };
 
     const nextQuestion = (used: Set<string>) => {
@@ -232,7 +279,6 @@ export default function App() {
 
     const handleAnswer = (selected: Cartoon) => {
         if (!currentQuestion || selectedId) return;
-        
         setSelectedId(selected.id);
         const isCorrect = selected.id === currentQuestion.id;
         
@@ -245,13 +291,21 @@ export default function App() {
                 setScore(s => s + 100);
                 const newAnswered = answeredCount + 1;
                 setAnsweredCount(newAnswered);
+                
                 if (newAnswered % 3 === 0) {
                     const newLevel = Math.floor(newAnswered / 3) + 1;
                     setLevel(newLevel);
-                    setStars(s => s + 1);
-                    if (newLevel === 2) setMaxLives(2);
-                    if (newLevel >= 3) setMaxLives(1);
-                    setLives(l => Math.min(l, (newLevel === 2 ? 2 : (newLevel >= 3 ? 1 : 3))));
+                    
+                    // Boost logic
+                    const multiplier = activePowerups.has('boost') ? 2 : 1;
+                    setStars(s => s + (1 * multiplier));
+                    
+                    // Difficulty progression
+                    if (!activePowerups.has('shield')) {
+                        if (newLevel === 2) setMaxLives(2);
+                        if (newLevel >= 3) setMaxLives(1);
+                        setLives(l => Math.min(l, (newLevel === 2 ? 2 : (newLevel >= 3 ? 1 : 3))));
+                    }
                 }
             }
             setLastResult({ correct: isCorrect, correctItem: currentQuestion });
@@ -261,7 +315,16 @@ export default function App() {
 
     const handleNextResult = () => {
         if (lives <= 0) {
-            saveStats(score, stars);
+            const earnedStars = stars;
+            const newTotalStars = stats.totalStars + earnedStars;
+            const newHighScore = Math.max(stats.highScore, score);
+            
+            // Consumable powerups reset
+            const emptyPowerups = new Set<string>();
+            setStats(prev => ({ ...prev, totalStars: newTotalStars, highScore: newHighScore }));
+            setActivePowerups(emptyPowerups);
+            updateStorage(newHighScore, newTotalStars, purchasedSkins, activeTvSkin, emptyPowerups);
+            
             setGameState('gameover');
         } else {
             setGameState('playing');
@@ -270,24 +333,24 @@ export default function App() {
     };
 
     const togglePause = () => setGameState(curr => curr === 'playing' ? 'paused' : 'playing');
-    const goMenu = () => { if (score > 0) saveStats(score, stars); setGameState('menu'); };
-
-    // --- Components ---
-
-    const NotificationOverlay = () => notification && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] animate-bounce">
-            <div className="bg-soviet-green text-white px-6 py-3 border-4 border-black shadow-hard rounded-2xl flex items-center gap-3">
-                <CheckCircle size={24} />
-                <span className="font-oswald font-bold tracking-tight uppercase">{notification}</span>
-            </div>
-        </div>
-    );
+    const goMenu = () => { 
+        if (gameState === 'playing' || gameState === 'result') {
+            const newHighScore = Math.max(stats.highScore, score);
+            const newTotalStars = stats.totalStars + stars;
+            const emptyPowerups = new Set<string>();
+            setStats({ highScore: newHighScore, totalStars: newTotalStars });
+            setActivePowerups(emptyPowerups);
+            updateStorage(newHighScore, newTotalStars, purchasedSkins, activeTvSkin, emptyPowerups);
+        }
+        setGameState('menu'); 
+    };
 
     // --- Screens ---
 
     if (gameState === 'menu') {
         return (
-            <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 relative overflow-hidden">
+            <div className="min-h-screen w-full flex flex-col items-center justify-center p-6 relative overflow-hidden pb-24">
+                <Toast message={toast} />
                 <div className="max-w-md w-full bg-white border-[6px] border-soviet-dark rounded-[40px] shadow-menu-card relative overflow-hidden flex flex-col items-center p-8 animate-slide-up">
                     <div className="absolute top-0 inset-x-0 h-4 bg-soviet-red"></div>
                     <div className="mt-6 mb-8 text-center relative w-full flex flex-col items-center">
@@ -308,22 +371,12 @@ export default function App() {
                     </div>
                     <div className="flex gap-4 mb-8 w-full justify-center">
                         <div className="bg-[#fdf3cc] border-2 border-[#e6d8a2] rounded-[20px] px-4 py-3 flex flex-col items-center relative flex-1">
-                             <div className="flex items-center gap-2">
-                                 <Trophy size={18} className="text-[#d4af37]" />
-                                 <div className="flex flex-col items-start leading-tight">
-                                    <span className="text-[8px] font-bold text-[#b09647] uppercase tracking-widest">{T.record}</span>
-                                    <span className="text-lg font-bold text-soviet-dark">{stats.highScore}</span>
-                                 </div>
-                             </div>
+                             <div className="flex items-center gap-2 text-soviet-dark/60"><Trophy size={14} /> <span className="text-[10px] font-bold uppercase tracking-widest">{T.record}</span></div>
+                             <span className="text-xl font-bold text-soviet-dark">{stats.highScore}</span>
                         </div>
                         <div className="bg-[#fdf3cc] border-2 border-[#e6d8a2] rounded-[20px] px-4 py-3 flex flex-col items-center relative flex-1">
-                             <div className="flex items-center gap-2">
-                                 <Star size={18} className="text-soviet-gold" fill="currentColor" />
-                                 <div className="flex flex-col items-start leading-tight">
-                                    <span className="text-[8px] font-bold text-[#b09647] uppercase tracking-widest">{T.stars}</span>
-                                    <span className="text-lg font-bold text-soviet-dark">{stats.totalStars}</span>
-                                 </div>
-                             </div>
+                             <div className="flex items-center gap-2 text-soviet-dark/60"><Star size={14} fill="currentColor" /> <span className="text-[10px] font-bold uppercase tracking-widest">{T.stars}</span></div>
+                             <span className="text-xl font-bold text-soviet-dark">{stats.totalStars}</span>
                         </div>
                     </div>
                     <div className="w-full space-y-4 px-2">
@@ -338,42 +391,106 @@ export default function App() {
 
     if (gameState === 'shop') {
         return (
-            <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 font-oswald paper-texture overflow-x-hidden">
-                <NotificationOverlay />
+            <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 font-oswald paper-texture overflow-x-hidden pb-24">
+                <Toast message={toast} />
+                {cinemaCartoon && (
+                    <div className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4">
+                        <div className="max-w-md w-full bg-white border-4 border-soviet-gold p-6 rounded-[32px] text-center shadow-2xl relative animate-wobble">
+                            <h2 className="font-ruslan text-3xl mb-4 text-soviet-red uppercase">{T.cinema_title}</h2>
+                            <div className="aspect-video bg-black rounded-xl overflow-hidden mb-4 border-2 border-black">
+                                <img src={cinemaCartoon.imageUrl} className="w-full h-full object-contain" />
+                            </div>
+                            <h3 className="text-xl font-bold mb-2 uppercase">{cinemaCartoon[lang].title}</h3>
+                            <p className="text-xs mb-6 text-gray-600 italic">"{cinemaCartoon[lang].desc}"</p>
+                            <Button fullWidth rounded onClick={() => setCinemaCartoon(null)} variant="primary">{T.close}</Button>
+                        </div>
+                    </div>
+                )}
+                {purchaseModal && (
+                    <div className="fixed inset-0 z-[100] bg-soviet-dark/80 backdrop-blur-sm flex items-center justify-center p-6">
+                        <div className="bg-white border-4 border-black p-6 rounded-[32px] shadow-hard-lg max-w-xs w-full text-center animate-slide-up relative">
+                             {purchaseModal.success ? (
+                                <>
+                                    <div className="flex flex-col items-center gap-4 mb-4">
+                                        <div className="w-16 h-16 bg-soviet-green rounded-full flex items-center justify-center text-white border-2 border-black">
+                                            <CheckCircle2 size={40} />
+                                        </div>
+                                        <h3 className="text-xl font-bold uppercase">{T.bought_success}</h3>
+                                        <p className="text-sm font-bold text-soviet-dark">{purchaseModal.item.name[lang]}</p>
+                                    </div>
+                                    <Button fullWidth rounded onClick={() => setPurchaseModal(null)} variant="accent">{T.close}</Button>
+                                </>
+                             ) : (
+                                <>
+                                    <h3 className="text-xl font-bold uppercase mb-4">{T.confirm_purchase}</h3>
+                                    <div className="bg-soviet-cream border-2 border-black/10 rounded-xl p-4 mb-6">
+                                        <div className="flex items-center justify-center gap-3 mb-2">
+                                            <purchaseModal.item.icon size={24} className="text-soviet-red" />
+                                            <span className="font-bold">{purchaseModal.item.name[lang]}</span>
+                                        </div>
+                                        <div className="flex items-center justify-center gap-2 text-soviet-gold font-bold">{purchaseModal.item.price} <Star size={16} fill="currentColor" /></div>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <Button className="flex-1" rounded variant="primary" onClick={confirmPurchase}>{T.yes}</Button>
+                                        <Button className="flex-1" rounded variant="secondary" onClick={() => setPurchaseModal(null)}>{T.no}</Button>
+                                    </div>
+                                </>
+                             )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="max-w-md w-full bg-white border-4 border-soviet-dark p-6 rounded-[32px] shadow-hard-lg relative animate-slide-up">
-                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-soviet-red text-soviet-cream px-8 py-2 border-2 border-black shadow-hard font-bold tracking-widest -rotate-1 text-xl rounded-full">{T.shop_title}</div>
+                    <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-soviet-red text-soviet-cream px-8 py-2 border-2 border-black shadow-hard font-bold tracking-widest -rotate-1 text-xl rounded-full uppercase">{T.shop_title}</div>
                     <div className="mt-8 flex justify-between items-center mb-6 border-b-2 border-dashed border-black/10 pb-4">
                         <span className="font-ruslan text-2xl text-soviet-dark">{T.stars}</span>
                         <span className="font-bold text-xl bg-soviet-gold border-2 border-black px-4 py-1.5 flex items-center gap-2 shadow-hard-sm animate-wobble rounded-full">{stats.totalStars} <Star size={20} fill="black" /></span>
                     </div>
-                    <div className="bg-[#f0f9ff] border-2 border-blue-200 p-4 mb-4 shadow-hard-sm relative overflow-visible group rounded-2xl">
+                    
+                    <div className="bg-[#fff9e6] border-2 border-yellow-400 p-4 mb-4 shadow-hard-sm relative overflow-visible group rounded-2xl">
                         <div className="absolute -top-3 -right-2 bg-soviet-red text-white text-[9px] px-2 py-0.5 font-bold uppercase rotate-12 shadow-sm rounded border border-black/20 z-20 whitespace-nowrap min-w-[50px] text-center">{T.bonus}</div>
                         <div className="flex items-center gap-4">
-                            <div className="p-2 bg-soviet-gold border-2 border-black rounded-xl shadow-hard-sm group-hover:scale-110 transition-transform"><Film size={24} className="text-black" /></div>
+                            <div className="p-2 bg-soviet-gold border-2 border-black rounded-xl shadow-hard-sm group-hover:scale-110 transition-transform"><Camera size={24} className="text-black" /></div>
                             <div className="flex-1 text-left">
                                 <h4 className="font-bold text-sm sm:text-base leading-tight uppercase tracking-tight">{T.earn_stars}</h4>
                                 <p className="text-[9px] sm:text-[10px] text-gray-500 leading-tight">{T.watch_ad_desc}</p>
                             </div>
-                            <button onClick={handleEarnStarsAd} className="px-3 py-1.5 bg-soviet-green text-white border-2 border-black font-bold text-xs shadow-hard-sm active:translate-y-0.5 active:shadow-none rounded-lg">{T.earn}</button>
+                            <button onClick={handleWatchCartoon} className="px-3 py-1.5 bg-soviet-green text-white border-2 border-black font-bold text-xs shadow-hard-sm active:translate-y-0.5 active:shadow-none rounded-lg">{T.earn}</button>
                         </div>
                     </div>
+
                     <div className="space-y-3 mb-6 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-                        {SHOP_ITEMS.map(item => (
-                            <div key={item.id} className="flex items-center gap-4 bg-[#f8f8f8] border-2 border-black/5 p-3 rounded-2xl shadow-sm hover:translate-x-1 transition-transform">
-                                <div className="p-2.5 bg-soviet-cream border-2 border-black rounded-xl"><item.icon size={22} className="text-soviet-red" /></div>
-                                <div className="flex-1 text-left">
-                                    <h4 className="font-bold text-base leading-none uppercase">{item.name[lang]}</h4>
-                                    <p className="text-[10px] text-gray-500">{item.desc[lang]}</p>
+                        {SHOP_ITEMS.map(item => {
+                            const isOwned = item.type === 'skin' ? purchasedSkins.has(item.id) : activePowerups.has(item.id);
+                            const isActiveSkin = item.type === 'skin' && activeTvSkin === item.id;
+                            
+                            let btnLabel = `${item.price} ⭐`;
+                            if (isActiveSkin) btnLabel = "✓";
+                            else if (isOwned) btnLabel = item.type === 'skin' ? "ВЫБРАТЬ" : "АКТИВНО";
+
+                            return (
+                                <div key={item.id} className={`flex items-center gap-4 bg-[#f8f8f8] border-2 ${isActiveSkin ? 'border-soviet-gold shadow-md' : 'border-black/5'} p-3 rounded-2xl shadow-sm hover:translate-x-1 transition-transform`}>
+                                    <div className={`p-2.5 rounded-xl border-2 ${isActiveSkin ? 'bg-soviet-gold border-black' : 'bg-soviet-cream border-black/10'}`}>
+                                        <item.icon size={22} className={isActiveSkin ? 'text-black' : 'text-soviet-red'} />
+                                    </div>
+                                    <div className="flex-1 text-left">
+                                        <h4 className="font-bold text-sm leading-none uppercase">{item.name[lang]}</h4>
+                                        <p className="text-[10px] text-gray-500 leading-tight">{item.desc[lang]}</p>
+                                    </div>
+                                    <button 
+                                        disabled={stats.totalStars < item.price && !isOwned}
+                                        onClick={() => handlePurchase(item)}
+                                        className={`px-3 py-1.5 border-2 border-black font-bold text-[10px] shadow-hard-sm active:shadow-none active:translate-y-0.5 rounded-lg min-w-[70px] ${
+                                            isActiveSkin ? 'bg-soviet-green text-white' : 
+                                            isOwned ? (item.type === 'skin' ? 'bg-soviet-gold' : 'bg-soviet-green text-white cursor-default') :
+                                            (stats.totalStars >= item.price ? 'bg-white' : 'bg-gray-200 opacity-50')
+                                        }`}
+                                    >
+                                        {btnLabel}
+                                    </button>
                                 </div>
-                                <button 
-                                    onClick={() => buyItem(item)}
-                                    disabled={stats.totalStars < item.price}
-                                    className={`px-3 py-1.5 border-2 border-black font-bold text-xs shadow-hard-sm active:shadow-none active:translate-y-0.5 rounded-lg ${stats.totalStars >= item.price ? 'bg-soviet-gold hover:bg-yellow-400' : 'bg-gray-200 opacity-50 cursor-not-allowed'}`}
-                                >
-                                    {item.price} ⭐
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     <Button fullWidth variant="secondary" onClick={() => setGameState('menu')} rounded><Home size={20} /> {T.menu}</Button>
                 </div>
@@ -383,9 +500,10 @@ export default function App() {
 
     if (gameState === 'gameover') {
         return (
-            <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-soviet-dark/95 font-oswald relative overflow-hidden">
+            <div className="min-h-screen w-full flex flex-col items-center justify-center p-4 bg-soviet-dark/95 font-oswald relative overflow-hidden pb-24">
+                 <Toast message={toast} />
                  <div className="max-w-md w-full bg-white border-4 border-black p-6 shadow-2xl relative rotate-1 animate-slide-up rounded-[40px]">
-                    <h2 className="font-ruslan text-5xl mb-6 text-center text-soviet-dark drop-shadow-md">{T.gameover}</h2>
+                    <h2 className="font-ruslan text-5xl mb-6 text-center text-soviet-dark drop-shadow-md uppercase">{T.gameover}</h2>
                     <div className="bg-soviet-cream border-2 border-black p-4 mb-6 text-center shadow-hard-sm rounded-3xl">
                         <p className="text-[9px] uppercase tracking-[0.3em] text-gray-500 font-bold mb-1">{T.your_score}</p>
                         <p className="text-5xl font-bold text-soviet-red drop-shadow-[2px_2px_0_rgba(0,0,0,0.1)]">{score}</p>
@@ -393,7 +511,7 @@ export default function App() {
                     </div>
                     <p className="text-center mb-6 italic font-serif text-gray-600 leading-relaxed px-4 text-sm">{T.gameover_msg}</p>
                     <div className="space-y-4">
-                        <Button fullWidth rounded onClick={handleRevive} className="py-4 text-lg"><Play size={24} fill="currentColor" /> {T.revive}<span className="text-[9px] bg-black/10 px-1 rounded ml-1 font-normal opacity-70 tracking-tighter uppercase">AD</span></Button>
+                        <Button fullWidth rounded onClick={startGame} className="py-4 text-lg"><RefreshCw size={24} /> {T.revive}</Button>
                         <Button fullWidth rounded variant="secondary" onClick={goMenu}><Home size={20} /> {T.menu}</Button>
                     </div>
                  </div>
@@ -422,7 +540,7 @@ export default function App() {
 
     return (
         <div className="min-h-screen w-full flex flex-col bg-soviet-cream font-oswald relative paper-texture overflow-x-hidden">
-            <NotificationOverlay />
+            <Toast message={toast} />
             <div className="bg-soviet-red border-b-4 border-black p-2.5 pt-safe-top z-50 sticky top-0 shadow-hard w-full">
                 <div className="max-w-lg mx-auto flex justify-between items-end gap-2 px-1">
                     <div className="bg-soviet-cream border-2 border-black px-2.5 py-1 shadow-hard-sm transform -rotate-1 min-w-[65px] rounded-lg">
@@ -451,7 +569,15 @@ export default function App() {
             <div className="flex-1 flex flex-col items-center p-3 w-full max-w-lg mx-auto relative z-0">
                 {currentQuestion && (
                     <div className={`w-full space-y-4 sm:space-y-6 ${isWrong ? 'animate-shake' : ''}`}>
-                         <div className="w-full"><TVFrame imageUrl={currentQuestion.imageUrl} label={T.tv_brand} /></div>
+                         <div className="w-full flex flex-col items-center">
+                             <TVFrame imageUrl={currentQuestion.imageUrl} label={T.tv_brand} skin={activeTvSkin} />
+                             {activePowerups.size > 0 && (
+                                <div className="mt-2 flex gap-2">
+                                    {activePowerups.has('shield') && <div className="bg-soviet-green text-white text-[9px] px-3 py-1 rounded-full border-2 border-black shadow-hard-sm font-bold uppercase tracking-tight animate-float">Доп. жизнь активна</div>}
+                                    {activePowerups.has('boost') && <div className="bg-soviet-gold text-soviet-dark text-[9px] px-3 py-1 rounded-full border-2 border-black shadow-hard-sm font-bold uppercase tracking-tight animate-float">Буст звезд активен</div>}
+                                </div>
+                             )}
+                         </div>
                          <div className="relative transform -rotate-1 max-w-fit mx-auto scale-90">
                              <div className="absolute inset-0 bg-black translate-x-1 translate-y-1 rounded-lg"></div>
                              <div className="relative bg-white border-2 border-black px-6 py-2 rounded-lg">
@@ -482,7 +608,7 @@ export default function App() {
             {gameState === 'paused' && (
                 <div className="fixed inset-0 bg-soviet-dark/90 z-[100] flex items-center justify-center p-4">
                     <div className="bg-soviet-cream p-8 border-4 border-black w-full max-w-xs shadow-hard-lg text-center relative rotate-1 rounded-[32px]">
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-soviet-red text-white px-8 py-2 font-ruslan tracking-widest text-2xl border-2 border-black shadow-hard-sm -rotate-2 rounded-full">{T.pause}</div>
+                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-soviet-red text-white px-8 py-2 font-ruslan tracking-widest text-2xl border-2 border-black shadow-hard-sm -rotate-2 rounded-full uppercase">{T.pause}</div>
                         <div className="space-y-4 mt-6">
                             <Button fullWidth rounded onClick={togglePause} variant="primary" className="py-4"><Play size={24} fill="currentColor" /> {T.resume}</Button>
                             <Button fullWidth rounded onClick={goMenu} variant="secondary"><Home size={20} /> {T.menu}</Button>
