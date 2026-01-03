@@ -27,13 +27,17 @@ jobs:
           distribution: 'zulu'
           java-version: '21'
 
-      - name: Sync Capacitor
+      - name: Create Android Project
         run: |
-          if [ ! -d "android" ]; then
-            npx cap init "MyApp" "com.my.app" --web-dir dist
-            npx cap add android
-          fi
+          # Эта часть создает папку android, если её нет в вашем GitHub
+          npx cap init "MultVkSSSR" "com.multvk.sssr" --web-dir dist
+          npx cap add android
           npx cap sync android
+
+      - name: Fix Duplicate Classes
+        run: |
+          # Автоматически добавляем исправление дубликатов в сгенерированный файл
+          echo "configurations.all { exclude group: 'com.google.guava', module: 'listenablefuture' }" >> android/app/build.gradle
 
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
@@ -42,11 +46,8 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          # Добавляем флаг игнорирования дубликатов и отключаем проверку дублей
           ./gradlew assembleRelease \
             -x lintVitalRelease \
-            -Pandroid.buildAnalyzer.reporting.format=none \
-            -Pandroid.enforceUniquePackageName=false \
             -Pandroid.injected.signing.store.file=release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
