@@ -1,16 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import ErrorBoundary from './ErrorBoundary'; // Импортируем наш щит
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
-);
+// Если вы создали пустой файл index.css, оставьте импорт. 
+// Если нет - закомментируйте строку ниже.
+// import './index.css'; 
 
-root.render(
-  <React.StrictMode>
-    <ErrorBoundary>
+const rootElement = document.getElementById('root');
+
+if (rootElement) {
+  const root = ReactDOM.createRoot(rootElement);
+  root.render(
+    <React.StrictMode>
       <App />
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+    </React.StrictMode>
+  );
+}
