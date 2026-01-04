@@ -19,7 +19,7 @@ interface ShopItem {
 
 const SHOP_ITEMS: ShopItem[] = [
     { id: 'shield', icon: Shield, price: 50, name: { ru: 'Защита', en: 'Shield', tr: 'Kalkan' }, desc: { ru: '+1 жизнь на одну игру', en: '+1 life for one game', tr: 'Bir oyun için +1 can' }, type: 'powerup' },
-    { id: 'boost', icon: Zap, price: 100, name: { ru: 'Буст x2', en: 'Boost x2', tr: 'Takviye x2' }, desc: { ru: 'x2 звезды на одну игру', en: 'x2 stars for one game', tr: 'Bir oyun için x2 yıldız' }, type: 'powerup' },
+    { id: 'boost', icon: Zap, price: 100, name: { ru: 'Буст x2', en: 'Boost x2', tr: 'Takviye x2' }, desc: { ru: 'x2 звезды на одну игру', en: 'x2 stars for one game', tr: 'Bir oyun для x2 yıldız' }, type: 'powerup' },
     { id: 'master', icon: Award, price: 500, name: { ru: 'Знаток', en: 'Master', tr: 'Usta' }, desc: { ru: 'Золотой телевизор', en: 'Gold TV Frame', tr: 'Altın TV Çerçevesi' }, type: 'skin' },
     { id: 'tv_red', icon: Tv, price: 200, name: { ru: 'Красный ТВ', en: 'Red TV', tr: 'Kırmızı TV' }, desc: { ru: 'Красный корпус', en: 'Red body', tr: 'Kırmızı gövde' }, type: 'skin' },
     { id: 'tv_silver', icon: Palette, price: 300, name: { ru: 'Серебряный ТВ', en: 'Silver TV', tr: 'Gümüş TV' }, desc: { ru: 'Металлический блеск', en: 'Silver body', tr: 'Gümüş gövde' }, type: 'skin' }
@@ -118,13 +118,11 @@ export default function App() {
     const [stars, setStars] = useState(0);
     const [isWrong, setIsWrong] = useState(false);
     
-    // Stats & Persistence - Initial stars set to 0
     const [stats, setStats] = useState<PlayerStats>({ highScore: 0, totalStars: 0 });
-    const [purchasedSkins, setPurchasedSkins] = useState<Set<string>>(new Set());
+    const [purchasedSkins, setPurchasedSkins] = useState<Set<string>>(new Set(['default']));
     const [activePowerups, setActivePowerups] = useState<Set<string>>(new Set());
     const [activeTvSkin, setActiveTvSkin] = useState<string>('default');
 
-    // UI State
     const [toast, setToast] = useState<string | null>(null);
     const [purchaseModal, setPurchaseModal] = useState<{item: ShopItem, success: boolean} | null>(null);
     const [cinemaCartoon, setCinemaCartoon] = useState<Cartoon | null>(null);
@@ -136,7 +134,6 @@ export default function App() {
         setTimeout(() => setToast(null), 3000);
     };
 
-    // Game logic
     const [currentQuestion, setCurrentQuestion] = useState<Cartoon | null>(null);
     const [options, setOptions] = useState<Cartoon[]>([]);
     const [usedQuestionIds, setUsedQuestionIds] = useState<Set<string>>(new Set());
@@ -144,44 +141,72 @@ export default function App() {
     const [answeredCount, setAnsweredCount] = useState(0);
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
-    // Initialize VK & Load Data
+    // ✅ ИСПРАВЛЕННАЯ ИНИЦИАЛИЗАЦИЯ (Try-Catch + LocalStorage)
     useEffect(() => {
-        const initVK = async () => {
-            try {
-                await vkBridge.send('VKWebAppInit');
-                const userLang = navigator.language.split('-')[0];
-                if (['en', 'tr'].includes(userLang)) setLang(userLang as Language);
+        const initGame = async () => {
+            // 1. Сначала загружаем из локальной памяти (всегда работает)
+            const localHS = localStorage.getItem('highScore');
+            const localStars = localStorage.getItem('totalStars');
+            const localSkins = localStorage.getItem('purchasedSkins');
+            const localActiveSkin = localStorage.getItem('activeSkin');
 
-                const storage = await vkBridge.send('VKWebAppStorageGet', { 
-                    keys: ['highScore', 'totalStars', 'purchasedSkins', 'activeSkin', 'activePowerups'] 
+            if (localHS || localStars) {
+                setStats({
+                    highScore: parseInt(localHS || '0'),
+                    totalStars: parseInt(localStars || '0')
                 });
-                
-                if (storage.keys) {
-                    const loadedStats = { highScore: 0, totalStars: 0 };
-                    storage.keys.forEach(k => {
-                        if (k.key === 'highScore') loadedStats.highScore = parseInt(k.value) || 0;
-                        if (k.key === 'totalStars') loadedStats.totalStars = parseInt(k.value) || 0;
-                        if (k.key === 'purchasedSkins') setPurchasedSkins(new Set<string>(JSON.parse(k.value || '[]')));
-                        if (k.key === 'activeSkin') setActiveTvSkin(k.value || 'default');
-                        if (k.key === 'activePowerups') setActivePowerups(new Set<string>(JSON.parse(k.value || '[]')));
+            }
+            if (localSkins) {
+                try { setPurchasedSkins(new Set(JSON.parse(localSkins))); } catch(e) {}
+            }
+            if (localActiveSkin) setActiveTvSkin(localActiveSkin);
+
+            // 2. Только если мы в ВК - инициализируем Bridge
+            const isVk = window.location.search.includes('vk_');
+            if (isVk) {
+                try {
+                    await vkBridge.send('VKWebAppInit');
+                    const storage = await vkBridge.send('VKWebAppStorageGet', { 
+                        keys: ['highScore', 'totalStars', 'purchasedSkins', 'activeSkin'] 
                     });
-                    setStats(loadedStats);
+                    
+                    if (storage && storage.keys) {
+                        storage.keys.forEach(k => {
+                            if (!k.value) return;
+                            if (k.key === 'highScore') setStats(s => ({ ...s, highScore: Math.max(s.highScore, parseInt(k.value)) }));
+                            if (k.key === 'totalStars') setStats(s => ({ ...s, totalStars: Math.max(s.totalStars, parseInt(k.value)) }));
+                            if (k.key === 'purchasedSkins') {
+                                try { 
+                                    const skins = JSON.parse(k.value);
+                                    setPurchasedSkins(prev => new Set([...Array.from(prev), ...skins]));
+                                } catch(e) {}
+                            }
+                            if (k.key === 'activeSkin') setActiveTvSkin(k.value);
+                        });
+                    }
+                } catch (e) {
+                    console.log("VK Bridge not available");
                 }
-            } catch (e) {
-                console.error("VK Init Error", e);
             }
         };
-        initVK();
+        initGame();
     }, []);
 
+    // ✅ ИСПРАВЛЕННОЕ СОХРАНЕНИЕ
     const updateStorage = (newHighScore: number, newStars: number, skins?: Set<string>, skin?: string, powerups?: Set<string>) => {
-        try {
-            vkBridge.send('VKWebAppStorageSet', { key: 'highScore', value: newHighScore.toString() });
-            vkBridge.send('VKWebAppStorageSet', { key: 'totalStars', value: newStars.toString() });
-            if (skins) vkBridge.send('VKWebAppStorageSet', { key: 'purchasedSkins', value: JSON.stringify(Array.from(skins)) });
-            if (skin) vkBridge.send('VKWebAppStorageSet', { key: 'activeSkin', value: skin });
-            if (powerups) vkBridge.send('VKWebAppStorageSet', { key: 'activePowerups', value: JSON.stringify(Array.from(powerups)) });
-        } catch(e) { console.error(e); }
+        // Локально
+        localStorage.setItem('highScore', newHighScore.toString());
+        localStorage.setItem('totalStars', newStars.toString());
+        if (skins) localStorage.setItem('purchasedSkins', JSON.stringify(Array.from(skins)));
+        if (skin) localStorage.setItem('activeSkin', skin);
+
+        // В облако ВК
+        if (window.location.search.includes('vk_')) {
+            vkBridge.send('VKWebAppStorageSet', { key: 'highScore', value: newHighScore.toString() }).catch(()=>{});
+            vkBridge.send('VKWebAppStorageSet', { key: 'totalStars', value: newStars.toString() }).catch(()=>{});
+            if (skins) vkBridge.send('VKWebAppStorageSet', { key: 'purchasedSkins', value: JSON.stringify(Array.from(skins)) }).catch(()=>{});
+            if (skin) vkBridge.send('VKWebAppStorageSet', { key: 'activeSkin', value: skin }).catch(()=>{});
+        }
     };
 
     const handleWatchCartoon = () => {
@@ -245,7 +270,6 @@ export default function App() {
 
     const startGame = () => {
         setScore(0);
-        // Bonus life logic
         const bonusLives = activePowerups.has('shield') ? 1 : 0;
         const startingLives = 3 + bonusLives;
         setLives(startingLives);
@@ -295,12 +319,9 @@ export default function App() {
                 if (newAnswered % 3 === 0) {
                     const newLevel = Math.floor(newAnswered / 3) + 1;
                     setLevel(newLevel);
-                    
-                    // Boost logic
                     const multiplier = activePowerups.has('boost') ? 2 : 1;
                     setStars(s => s + (1 * multiplier));
                     
-                    // Difficulty progression
                     if (!activePowerups.has('shield')) {
                         if (newLevel === 2) setMaxLives(2);
                         if (newLevel >= 3) setMaxLives(1);
@@ -318,13 +339,10 @@ export default function App() {
             const earnedStars = stars;
             const newTotalStars = stats.totalStars + earnedStars;
             const newHighScore = Math.max(stats.highScore, score);
-            
-            // Consumable powerups reset
             const emptyPowerups = new Set<string>();
             setStats(prev => ({ ...prev, totalStars: newTotalStars, highScore: newHighScore }));
             setActivePowerups(emptyPowerups);
             updateStorage(newHighScore, newTotalStars, purchasedSkins, activeTvSkin, emptyPowerups);
-            
             setGameState('gameover');
         } else {
             setGameState('playing');
@@ -345,7 +363,7 @@ export default function App() {
         setGameState('menu'); 
     };
 
-    // --- Screens ---
+    // --- Отрисовка экранов ---
 
     if (gameState === 'menu') {
         return (
